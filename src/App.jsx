@@ -8,6 +8,7 @@ import TriageScreen from './screens/TriageScreen.jsx'
 import UrgentScreen from './screens/UrgentScreen.jsx'
 import BreathingScreen from './screens/BreathingScreen.jsx'
 import RiskProfileScreen from './screens/RiskProfileScreen.jsx'
+import ContactScreen from './screens/ContactScreen.jsx'
 import SymptomMatrixScreen from './screens/SymptomMatrixScreen.jsx'
 import ResultsScreen from './screens/ResultsScreen.jsx'
 
@@ -18,6 +19,7 @@ export default function App() {
   const [ageYears, setAgeYears] = useState(null)
   const [highRisk, setHighRisk] = useState(false)
   const [score, setScore] = useState(null)
+  const [contactPositive, setContactPositive] = useState(false)
   const [referralCode, setReferralCode] = useState(null)
   // Visual language state only — content is not translated yet.
   const [lang, setLang] = useState('en')
@@ -30,6 +32,7 @@ export default function App() {
     setAgeYears(null)
     setHighRisk(false)
     setScore(null)
+    setContactPositive(false)
     setReferralCode(null)
     setScreen('welcome')
   }
@@ -98,8 +101,27 @@ export default function App() {
           fastTrack={fastTrack}
           onContinue={(isHighRisk) => {
             setHighRisk(isHighRisk)
-            setScreen('symptoms')
+            setScreen('contact')
           }}
+        />
+      )
+
+    case 'contact':
+      return (
+        <ContactScreen
+          {...shared}
+          onAnswer={(hasContact) => {
+            setContactPositive(hasContact)
+            if (hasContact) {
+              /* Contact history alone indicates treatment: skip scoring. */
+              setScore(null)
+              setReferralCode(makeReferralCode())
+              setScreen('results')
+            } else {
+              setScreen('symptoms')
+            }
+          }}
+          onBack={() => setScreen('risk')}
         />
       )
 
@@ -107,6 +129,7 @@ export default function App() {
       return (
         <SymptomMatrixScreen
           {...shared}
+          ageYears={ageYears}
           onCalculate={(result) => {
             setScore(result)
             setReferralCode(makeReferralCode())
@@ -120,6 +143,7 @@ export default function App() {
         <ResultsScreen
           {...shared}
           score={score}
+          contactPositive={contactPositive}
           highRisk={highRisk}
           referralCode={referralCode}
           onRestart={startNewScreening}

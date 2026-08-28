@@ -1,19 +1,27 @@
 import { useEffect, useState } from 'react'
 import Screen, { COLUMN } from '../components/Screen.jsx'
 import TopBar from '../components/TopBar.jsx'
-import { PRESUMPTIVE_THRESHOLD } from '../data/scoring.js'
+import {
+  SOURCE_NOTE,
+  CONTACT_RULE,
+  DECISION_TREAT,
+  DECISION_NO_TREAT,
+} from '../data/scoring.js'
 
 export default function ResultsScreen({
   lang,
   onLangChange,
   score,
+  contactPositive,
   highRisk,
   referralCode,
   onRestart,
 }) {
-  const { total, items } = score
-  const presumptive = total >= PRESUMPTIVE_THRESHOLD
   const [assistantNote, setAssistantNote] = useState(false)
+
+  /* A close/household contact goes straight to treatment: no score is
+     calculated, so no score or breakdown is shown. */
+  const treat = contactPositive || score.treat
 
   return (
     <Screen fill>
@@ -26,64 +34,80 @@ export default function ResultsScreen({
           </p>
         )}
 
-        <p className="text-[0.5625rem] font-medium tracking-[0.16em] text-faint uppercase md:text-[0.6875rem] md:tracking-[0.2em]">
-          Risk Score
-        </p>
-        <AnimatedScore value={total} />
-
-        <section className="mt-8 border-t border-hairline pt-6 md:mt-10">
-          <p className="text-[0.5625rem] font-medium tracking-[0.16em] text-faint uppercase md:text-[0.6875rem] md:tracking-[0.2em]">
-            Reasoning
-          </p>
-
-          {items.length === 0 ? (
-            <p className="mt-4 text-sm leading-relaxed text-muted md:text-base">
-              No scoring findings recorded.
+        {contactPositive ? (
+          <ResultCard
+            tone="orange"
+            title="TB Treatment Indicated"
+            lines={[
+              CONTACT_RULE,
+              'Close or household TB contact in the previous 12 months. Contact history alone indicates treatment; no symptom score is calculated.',
+              `Refer to nearest PHC with referral code ${referralCode}.`,
+            ]}
+          />
+        ) : (
+          <>
+            <p className="text-[0.5625rem] font-medium tracking-[0.16em] text-faint uppercase md:text-[0.6875rem] md:tracking-[0.2em]">
+              Risk Score · Algorithm {score.algorithm}
             </p>
-          ) : (
-            <ul className="mt-4 flex flex-col gap-3">
-              {items.map((item) => (
-                <li
-                  key={item.id}
-                  className="flex items-baseline justify-between gap-4"
-                >
-                  <span className="text-base leading-snug text-fg md:text-lg">
-                    {item.label}
-                  </span>
-                  <span className="font-display shrink-0 text-base font-semibold text-muted tabular-nums md:text-lg">
-                    +{item.points}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+            <AnimatedScore value={score.total} />
 
-        <div className="mt-8 md:mt-10">
-          {presumptive ? (
-            <ResultCard
-              tone="orange"
-              title="Presumptive TB"
-              lines={[
-                `Initiate TACTiC protocol. Refer to nearest PHC with referral code ${referralCode}.`,
-                'Shortened 4-month regimen (2HRZ(E)/2HR) per WHO guidance.',
-              ]}
-            />
-          ) : (
-            <ResultCard
-              tone="green"
-              title="TB Unlikely"
-              lines={[
-                'Supportive care. Re-evaluate in 7 days.',
-                ...(highRisk
-                  ? [
-                      'High-risk child — keep a low threshold for re-evaluation.',
-                    ]
-                  : []),
-              ]}
-            />
-          )}
-        </div>
+            <section className="mt-8 border-t border-hairline pt-6 md:mt-10">
+              <p className="text-[0.5625rem] font-medium tracking-[0.16em] text-faint uppercase md:text-[0.6875rem] md:tracking-[0.2em]">
+                Reasoning
+              </p>
+
+              {score.items.length === 0 ? (
+                <p className="mt-4 text-sm leading-relaxed text-muted md:text-base">
+                  No scoring findings recorded.
+                </p>
+              ) : (
+                <ul className="mt-4 flex flex-col gap-3">
+                  {score.items.map((item) => (
+                    <li
+                      key={item.id}
+                      className="flex items-baseline justify-between gap-4"
+                    >
+                      <span className="text-base leading-snug text-fg md:text-lg">
+                        {item.label}
+                      </span>
+                      <span className="font-display shrink-0 text-base font-semibold text-muted tabular-nums md:text-lg">
+                        {item.points > 0 ? `+${item.points}` : item.points}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            <div className="mt-8 md:mt-10">
+              {treat ? (
+                <ResultCard
+                  tone="orange"
+                  title="TB Treatment Indicated"
+                  lines={[
+                    DECISION_TREAT,
+                    `Refer to nearest PHC with referral code ${referralCode}.`,
+                  ]}
+                />
+              ) : (
+                <ResultCard
+                  tone="green"
+                  title="Treatment Not Indicated"
+                  lines={[
+                    DECISION_NO_TREAT,
+                    ...(highRisk
+                      ? ['High-risk child — keep a low threshold for re-evaluation.']
+                      : []),
+                  ]}
+                />
+              )}
+            </div>
+          </>
+        )}
+
+        <p className="mt-8 border-t border-hairline pt-5 text-xs leading-relaxed text-faint md:text-sm">
+          {SOURCE_NOTE}
+        </p>
 
         {assistantNote && (
           <p
@@ -95,7 +119,9 @@ export default function ResultsScreen({
         )}
       </main>
 
-      <footer className={`${COLUMN} flex flex-col gap-3 pt-4 pb-8 md:gap-4 md:pb-12`}>
+      <footer
+        className={`${COLUMN} flex flex-col gap-3 pt-4 pb-8 md:gap-4 md:pb-12`}
+      >
         <button
           type="button"
           onClick={() => setAssistantNote(true)}
@@ -123,11 +149,11 @@ export default function ResultsScreen({
  */
 function AnimatedScore({ value }) {
   const [shown, setShown] = useState(() =>
-    prefersReducedMotion() || value === 0 ? value : 0
+    prefersReducedMotion() || value <= 0 ? value : 0
   )
 
   useEffect(() => {
-    if (prefersReducedMotion() || value === 0) {
+    if (prefersReducedMotion() || value <= 0) {
       setShown(value)
       return
     }
@@ -166,8 +192,7 @@ function ResultCard({ tone, title, lines }) {
     tone === 'orange'
       ? 'border-result-orange/35 bg-result-orange/10'
       : 'border-result-green/35 bg-result-green/10'
-  const heading =
-    tone === 'orange' ? 'text-result-orange' : 'text-result-green'
+  const heading = tone === 'orange' ? 'text-result-orange' : 'text-result-green'
 
   return (
     <div className={`rounded-xl border p-5 md:p-6 ${palette}`}>

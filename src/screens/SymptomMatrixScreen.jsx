@@ -1,32 +1,71 @@
 import { useState } from 'react'
 import Screen, { COLUMN } from '../components/Screen.jsx'
 import TopBar from '../components/TopBar.jsx'
-import { MAX_DURATION_DAYS, scoreSymptoms } from '../data/scoring.js'
+import {
+  MAX_DURATION_DAYS,
+  DURATION_THRESHOLD_DAYS,
+  deriveFindings,
+  scoreFindings,
+} from '../data/scoring.js'
+import { vitalThresholds, isTachypnoeic, isTachycardic } from '../data/vitals.js'
 
+/* Cough and fever come from the sliders and the two vital-sign items from
+   measured rates; these five are asked directly. */
 const TOGGLES = [
-  { id: 'weightLoss', label: 'Weight loss or poor weight gain?' },
-  { id: 'lymphNodes', label: 'Swollen or matted lymph nodes?' },
-  { id: 'householdTb', label: 'Anyone at home had TB in the last 12 months?' },
-  { id: 'fastBreathing', label: 'Fast or difficult breathing?' },
+  {
+    id: 'lethargy',
+    label: 'Persistent unexplained lethargy or reduced playfulness?',
+  },
+  { id: 'weightLoss', label: 'Weight loss or failure to thrive?' },
+  { id: 'haemoptysis', label: 'Haemoptysis (coughing up blood)?' },
+  { id: 'nightSweats', label: 'Night sweats?' },
+  { id: 'lymphNodes', label: 'Painless, enlarged (swollen) lymph nodes?' },
 ]
 
 export default function SymptomMatrixScreen({
   lang,
   onLangChange,
+  ageYears,
   onCalculate,
 }) {
   const [coughDays, setCoughDays] = useState(0)
   const [feverDays, setFeverDays] = useState(0)
+  const [respiratoryRate, setRespiratoryRate] = useState('')
+  const [heartRate, setHeartRate] = useState('')
   const [flags, setFlags] = useState({
+    lethargy: false,
     weightLoss: false,
+    haemoptysis: false,
+    nightSweats: false,
     lymphNodes: false,
-    householdTb: false,
-    fastBreathing: false,
+    tachypnoea: false,
+    tachycardia: false,
   })
   const [aiNote, setAiNote] = useState(false)
 
+  const thresholds = vitalThresholds(ageYears)
+
+  function setFlag(id, value) {
+    setFlags((prev) => ({ ...prev, [id]: value }))
+  }
+
+  /* Entering a rate auto-suggests the matching item. The toggle underneath
+     stays manually overridable afterwards. */
+  function onRespiratoryRate(value) {
+    setRespiratoryRate(value)
+    const suggested = isTachypnoeic(value, ageYears)
+    if (suggested !== null) setFlag('tachypnoea', suggested)
+  }
+
+  function onHeartRate(value) {
+    setHeartRate(value)
+    const suggested = isTachycardic(value, ageYears)
+    if (suggested !== null) setFlag('tachycardia', suggested)
+  }
+
   function submit() {
-    onCalculate(scoreSymptoms({ coughDays, feverDays, ...flags }))
+    const findings = deriveFindings({ coughDays, feverDays, ...flags })
+    onCalculate(scoreFindings(findings, { algorithm: 'B' }))
   }
 
   return (
@@ -37,13 +76,16 @@ export default function SymptomMatrixScreen({
         <DurationSlider
           id="cough-days"
           label="Cough duration"
+          qualifies="Counts as cough longer than 2 weeks"
           value={coughDays}
           onChange={setCoughDays}
         />
+
         <div className="mt-8 md:mt-10">
           <DurationSlider
             id="fever-days"
             label="Fever duration"
+            qualifies="Counts as fever longer than 2 weeks"
             value={feverDays}
             onChange={setFeverDays}
           />
@@ -55,12 +97,46 @@ export default function SymptomMatrixScreen({
               key={toggle.id}
               label={toggle.label}
               checked={flags[toggle.id]}
-              onChange={() =>
-                setFlags((prev) => ({ ...prev, [toggle.id]: !prev[toggle.id] }))
-              }
+              onChange={() => setFlag(toggle.id, !flags[toggle.id])}
             />
           ))}
         </div>
+
+        <section className="mt-9 md:mt-11">
+          <p className="text-[0.5625rem] font-medium tracking-[0.16em] text-faint uppercase md:text-[0.6875rem] md:tracking-[0.2em]">
+            Vital Signs · {thresholds.label}
+          </p>
+
+          <div className="mt-4 flex flex-col gap-3 md:gap-4">
+            <RateField
+              id="respiratory-rate"
+              label="Respiratory rate"
+              unit="breaths/min"
+              hint={`Tachypnoea above ${thresholds.respiratory}/min at this age`}
+              value={respiratoryRate}
+              onChange={onRespiratoryRate}
+            />
+            <ToggleRow
+              label="Tachypnoea?"
+              checked={flags.tachypnoea}
+              onChange={() => setFlag('tachypnoea', !flags.tachypnoea)}
+            />
+
+            <RateField
+              id="heart-rate"
+              label="Heart rate"
+              unit="beats/min"
+              hint={`Tachycardia above ${thresholds.heart}/min at this age`}
+              value={heartRate}
+              onChange={onHeartRate}
+            />
+            <ToggleRow
+              label="Tachycardia?"
+              checked={flags.tachycardia}
+              onChange={() => setFlag('tachycardia', !flags.tachycardia)}
+            />
+          </div>
+        </section>
 
         <div className="mt-9 md:mt-11">
           <div className="grid grid-cols-2 gap-3 md:gap-4">
@@ -95,7 +171,9 @@ export default function SymptomMatrixScreen({
   )
 }
 
-function DurationSlider({ id, label, value, onChange }) {
+function DurationSlider({ id, label, qualifies, value, onChange }) {
+  const counts = value > DURATION_THRESHOLD_DAYS
+
   return (
     <div>
       <div className="flex items-baseline justify-between gap-4">
@@ -128,6 +206,43 @@ function DurationSlider({ id, label, value, onChange }) {
         <span>0</span>
         <span>{MAX_DURATION_DAYS} days</span>
       </div>
+
+      <p
+        className={`mt-2 text-sm md:text-base ${counts ? 'text-teal' : 'text-faint'}`}
+      >
+        {counts ? qualifies : `Scores above ${DURATION_THRESHOLD_DAYS} days`}
+      </p>
+    </div>
+  )
+}
+
+function RateField({ id, label, unit, hint, value, onChange }) {
+  return (
+    <div className="rounded-xl border border-hairline bg-surface px-5 py-4 md:px-6">
+      <div className="flex items-center justify-between gap-4">
+        <label
+          htmlFor={id}
+          className="text-base leading-snug font-medium text-fg md:text-lg"
+        >
+          {label}
+        </label>
+
+        <div className="flex shrink-0 items-baseline gap-2">
+          <input
+            id={id}
+            type="text"
+            inputMode="numeric"
+            autoComplete="off"
+            placeholder="––"
+            value={value}
+            onChange={(e) => onChange(e.target.value.replace(/\D/g, ''))}
+            className="font-display w-20 rounded-lg border border-hairline bg-canvas px-3 py-2 text-center text-xl font-semibold text-fg outline-none placeholder:text-faint focus:border-teal focus-visible:ring-2 focus-visible:ring-teal md:w-24 md:text-2xl"
+          />
+          <span className="text-xs text-faint md:text-sm">{unit}</span>
+        </div>
+      </div>
+
+      <p className="mt-2 text-xs leading-relaxed text-faint md:text-sm">{hint}</p>
     </div>
   )
 }

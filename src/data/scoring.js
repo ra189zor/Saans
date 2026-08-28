@@ -1,60 +1,125 @@
 /**
- * WHO Algorithm B scoring — fully deterministic, no model involved.
- * Only positive findings score; each contributes its points once.
+ * WHO Operational Handbook on Tuberculosis, Module 5 (2022), Annex 5 —
+ * treatment decision algorithms for pulmonary TB in children under 10.
+ *
+ * Two published algorithms:
+ *   B — default, no chest X-ray. Symptom scores only.
+ *   A — used where chest X-ray is available. Sum A (symptoms) + Sum B (CXR).
+ *
+ * Both treat when the total is STRICTLY GREATER THAN 10.
+ *
+ * A close or household TB contact in the previous 12 months bypasses scoring
+ * entirely and goes straight to treatment — see CONTACT_RULE below.
  */
 
+export const SOURCE_NOTE =
+  'Scores per WHO Operational Handbook on Tuberculosis, Module 5 (2022), Annex 5.'
+
+/** Treat when total > this value. 10 exactly does NOT treat. */
+export const TREATMENT_THRESHOLD = 10
+
+/**
+ * Cough and fever qualify at "longer than 2 weeks", i.e. strictly more than
+ * 14 days — 15 days scores, 14 days does not.
+ */
 export const DURATION_THRESHOLD_DAYS = 14
-export const PRESUMPTIVE_THRESHOLD = 10
 export const MAX_DURATION_DAYS = 30
 
-export function scoreSymptoms({
+export const CONTACT_RULE =
+  'Initiate appropriate TB treatment immediately.'
+
+export const DECISION_TREAT = 'Initiate appropriate TB treatment.'
+export const DECISION_NO_TREAT =
+  'Do not treat with TB treatment. Return in 1–2 weeks.'
+
+/** The nine scored symptom items, in published order. */
+export const SYMPTOM_ITEMS = [
+  { id: 'cough', label: 'Cough longer than 2 weeks', a: 2, b: 5 },
+  { id: 'fever', label: 'Fever longer than 2 weeks', a: 5, b: 10 },
+  { id: 'lethargy', label: 'Lethargy', a: 3, b: 4 },
+  { id: 'weightLoss', label: 'Weight loss / failure to thrive', a: 3, b: 5 },
+  { id: 'haemoptysis', label: 'Haemoptysis', a: 4, b: 9 },
+  { id: 'nightSweats', label: 'Night sweats', a: 2, b: 6 },
+  { id: 'lymphNodes', label: 'Swollen lymph nodes', a: 4, b: 7 },
+  { id: 'tachycardia', label: 'Tachycardia', a: 2, b: 4 },
+  /* Tachypnoea is the one negative weight in Algorithm A. */
+  { id: 'tachypnoea', label: 'Tachypnoea', a: -1, b: 2 },
+]
+
+/** Chest X-ray features — Algorithm A only (Sum B). */
+export const CXR_ITEMS = [
+  { id: 'cavity', label: 'Cavity', points: 6 },
+  { id: 'enlargedLymphNodes', label: 'Enlarged lymph nodes', points: 17 },
+  { id: 'opacities', label: 'Opacities', points: 5 },
+  { id: 'miliary', label: 'Miliary pattern', points: 15 },
+  { id: 'effusion', label: 'Effusion', points: 8 },
+]
+
+/** Cough/fever are durations; the other seven are booleans. */
+export function deriveFindings({
   coughDays = 0,
   feverDays = 0,
-  weightLoss = false,
-  lymphNodes = false,
-  householdTb = false,
-  fastBreathing = false,
+  ...flags
 } = {}) {
+  return {
+    ...flags,
+    cough: coughDays > DURATION_THRESHOLD_DAYS,
+    fever: feverDays > DURATION_THRESHOLD_DAYS,
+    coughDays,
+    feverDays,
+  }
+}
+
+/**
+ * Score a set of findings.
+ *
+ * @param findings  booleans keyed by SYMPTOM_ITEMS id (plus coughDays/feverDays
+ *                  for display only)
+ * @param algorithm 'A' or 'B'
+ * @param cxr       booleans keyed by CXR_ITEMS id — Algorithm A only
+ */
+export function scoreFindings(findings = {}, { algorithm = 'B', cxr = null } = {}) {
+  const useA = algorithm === 'A'
   const items = []
 
-  if (coughDays >= DURATION_THRESHOLD_DAYS) {
-    items.push({ id: 'cough', label: `Cough ${coughDays} days`, points: 5 })
-  }
-  if (feverDays >= DURATION_THRESHOLD_DAYS) {
-    items.push({ id: 'fever', label: `Fever ${feverDays} days`, points: 3 })
-  }
-  if (weightLoss) {
-    items.push({
-      id: 'weightLoss',
-      label: 'Weight loss or poor weight gain',
-      points: 5,
-    })
-  }
-  if (lymphNodes) {
-    items.push({
-      id: 'lymphNodes',
-      label: 'Swollen or matted lymph nodes',
-      points: 7,
-    })
-  }
-  if (householdTb) {
-    items.push({
-      id: 'householdTb',
-      label: 'Household TB contact in last 12 months',
-      points: 4,
-    })
-  }
-  if (fastBreathing) {
-    items.push({
-      id: 'fastBreathing',
-      label: 'Fast or difficult breathing',
-      points: 2,
-    })
+  for (const item of SYMPTOM_ITEMS) {
+    if (!findings[item.id]) continue
+    const points = useA ? item.a : item.b
+    let label = item.label
+    if (item.id === 'cough' && findings.coughDays != null) {
+      label = `${item.label} (${findings.coughDays} days)`
+    }
+    if (item.id === 'fever' && findings.feverDays != null) {
+      label = `${item.label} (${findings.feverDays} days)`
+    }
+    items.push({ id: item.id, label, points, group: 'symptom' })
   }
 
+  const cxrItems = []
+  if (useA && cxr) {
+    for (const item of CXR_ITEMS) {
+      if (!cxr[item.id]) continue
+      cxrItems.push({
+        id: item.id,
+        label: item.label,
+        points: item.points,
+        group: 'cxr',
+      })
+    }
+  }
+
+  const sum = (list) => list.reduce((n, i) => n + i.points, 0)
+  const symptomTotal = sum(items)
+  const cxrTotal = sum(cxrItems)
+  const total = symptomTotal + cxrTotal
+
   return {
-    total: items.reduce((sum, item) => sum + item.points, 0),
-    items,
+    algorithm: useA ? 'A' : 'B',
+    items: [...items, ...cxrItems],
+    symptomTotal,
+    cxrTotal,
+    total,
+    treat: total > TREATMENT_THRESHOLD,
   }
 }
 
