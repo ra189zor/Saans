@@ -58,7 +58,14 @@ export function scoreSymptoms({
   }
 }
 
-/** Cosmetic referral identifier for the demo — not backed by any registry. */
+/**
+ * Cosmetic referral identifier for the demo — a unique-looking code per
+ * screening, not backed by any registry.
+ *
+ * In production this is replaced by the real referral / registration number
+ * issued by the national TB programme’s system, so the code on the referral
+ * slip resolves to an actual record the receiving PHC can look up.
+ */
 export function makeReferralCode() {
   return `SAANS-PHC-${Math.floor(100 + Math.random() * 900)}`
 }
