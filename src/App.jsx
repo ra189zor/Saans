@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { DANGER_SIGNS, MAX_AGE_YEARS } from './data/dangerSigns.js'
+import { makeReferralCode } from './data/scoring.js'
 import WelcomeScreen from './screens/WelcomeScreen.jsx'
 import AgeGateScreen from './screens/AgeGateScreen.jsx'
 import OutOfScopeScreen from './screens/OutOfScopeScreen.jsx'
@@ -8,12 +9,16 @@ import UrgentScreen from './screens/UrgentScreen.jsx'
 import BreathingScreen from './screens/BreathingScreen.jsx'
 import RiskProfileScreen from './screens/RiskProfileScreen.jsx'
 import SymptomMatrixScreen from './screens/SymptomMatrixScreen.jsx'
+import ResultsScreen from './screens/ResultsScreen.jsx'
 
 export default function App() {
   const [screen, setScreen] = useState('welcome')
   const [detectedSigns, setDetectedSigns] = useState([])
   const [fastTrack, setFastTrack] = useState(false)
   const [ageYears, setAgeYears] = useState(null)
+  const [highRisk, setHighRisk] = useState(false)
+  const [score, setScore] = useState(null)
+  const [referralCode, setReferralCode] = useState(null)
   // Visual language state only — content is not translated yet.
   const [lang, setLang] = useState('en')
 
@@ -23,6 +28,9 @@ export default function App() {
     setDetectedSigns([])
     setFastTrack(false)
     setAgeYears(null)
+    setHighRisk(false)
+    setScore(null)
+    setReferralCode(null)
     setScreen('welcome')
   }
 
@@ -88,12 +96,35 @@ export default function App() {
           {...shared}
           ageYears={ageYears}
           fastTrack={fastTrack}
-          onContinue={() => setScreen('symptoms')}
+          onContinue={(isHighRisk) => {
+            setHighRisk(isHighRisk)
+            setScreen('symptoms')
+          }}
         />
       )
 
     case 'symptoms':
-      return <SymptomMatrixScreen {...shared} />
+      return (
+        <SymptomMatrixScreen
+          {...shared}
+          onCalculate={(result) => {
+            setScore(result)
+            setReferralCode(makeReferralCode())
+            setScreen('results')
+          }}
+        />
+      )
+
+    case 'results':
+      return (
+        <ResultsScreen
+          {...shared}
+          score={score}
+          highRisk={highRisk}
+          referralCode={referralCode}
+          onRestart={startNewScreening}
+        />
+      )
 
     default:
       return <WelcomeScreen {...shared} onStart={() => setScreen('age')} />

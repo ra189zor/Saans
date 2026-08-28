@@ -26,6 +26,11 @@
   --color-amber: #A16207;
   --color-amber-hover: #854D0E;
 
+  /* Result cards — tinted and bordered, never solid bands, so they read as
+     conclusions rather than as the urgent/breathing alerts. */
+  --color-result-orange: #F97316;
+  --color-result-green: #22C55E;
+
   /* MUAC tape colours — these are the physical tape bands, so they stay
      literal rather than being folded into the charcoal palette. */
   --color-muac-red: #C62828;
