@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+@theme {
+  /* Surfaces — warm deep charcoal */
+  --color-canvas: #0B0F0E;
+  --color-hairline: rgba(255, 255, 255, 0.08);
+
+  /* Type */
+  --color-fg: #F2F5F4;
+  --color-muted: #8B9997;
+  --color-faint: #5D6A68;
+
+  /* Single accent — flat, no gradients */
+  --color-teal: #0F766E;
+  --color-teal-hover: #0C5F59;
+
+  /* Raised surface for neutral, equal-weight choice buttons */
+  --color-surface: #131A18;
+  --color-surface-hover: #1A2321;
+
+  /* Emergency — deep, serious red. Not an alert glow. */
+  --color-danger: #B42318;
+  --color-danger-hover: #991D13;
+
+  /* Caution — warm ochre, clearly separated in hue from the emergency red */
+  --color-amber: #A16207;
+  --color-amber-hover: #854D0E;
+
+  /* MUAC tape colours — these are the physical tape bands, so they stay
+     literal rather than being folded into the charcoal palette. */
+  --color-muac-red: #C62828;
+  --color-muac-yellow: #F2C037;
+  --color-muac-green: #2E7D32;
+
+  --animate-question: question-in 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Sora", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-urdu: "Noto Nastaliq Urdu", "Jameel Noori Nastaleeq", serif;
+}
+
+@keyframes question-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    background-color: var(--color-canvas);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overscroll-behavior: none;
+  }
+
+  button {
+    font-family: inherit;
+    touch-action: manipulation;
+  }
+}
+
+@utility font-urdu {
+  font-family: var(--font-urdu);
+  /* Nastaliq is a steeply cascading script — it needs vertical room to
+     avoid clipped descenders. */
+  line-height: 2;
+  padding-block: 0.1em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
