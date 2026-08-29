@@ -53,6 +53,34 @@ export const DANGER_SIGNS = [
     triggerOn: 'yes',
     outcome: 'urgent',
   },
+  {
+    id: 'dehydration',
+    label: 'severe dehydration',
+    text: 'Signs of severe dehydration (sunken eyes, skin pinch returns very slowly)?',
+    triggerOn: 'yes',
+    outcome: 'urgent',
+  },
+  {
+    id: 'pallor',
+    label: 'severe palmar pallor',
+    text: 'Severe palmar pallor?',
+    triggerOn: 'yes',
+    outcome: 'urgent',
+  },
+  {
+    id: 'hypoxia',
+    label: 'oxygen saturation below 90%',
+    text: 'Oxygen saturation below 90% (if pulse oximeter available)?',
+    triggerOn: 'yes',
+    outcome: 'urgent',
+  },
+  {
+    id: 'neckStiffness',
+    label: 'neck stiffness or bulging fontanelle',
+    text: 'Neck stiffness or bulging fontanelle?',
+    triggerOn: 'yes',
+    outcome: 'urgent',
+  },
 ]
 
 /** Screening is validated for children below this age, in completed years. */

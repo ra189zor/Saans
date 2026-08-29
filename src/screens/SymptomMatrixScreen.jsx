@@ -172,7 +172,7 @@ export default function SymptomMatrixScreen({
 }
 
 function DurationSlider({ id, label, qualifies, value, onChange }) {
-  const counts = value > DURATION_THRESHOLD_DAYS
+  const counts = value >= DURATION_THRESHOLD_DAYS
 
   return (
     <div>
@@ -210,7 +210,9 @@ function DurationSlider({ id, label, qualifies, value, onChange }) {
       <p
         className={`mt-2 text-sm md:text-base ${counts ? 'text-teal' : 'text-faint'}`}
       >
-        {counts ? qualifies : `Scores above ${DURATION_THRESHOLD_DAYS} days`}
+        {counts
+          ? qualifies
+          : `Scores at ${DURATION_THRESHOLD_DAYS} days or more`}
       </p>
     </div>
   )

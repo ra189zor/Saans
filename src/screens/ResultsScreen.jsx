@@ -4,6 +4,8 @@ import TopBar from '../components/TopBar.jsx'
 import {
   SOURCE_NOTE,
   CONTACT_RULE,
+  MWRD_RULE,
+  MWRD_NOTIFY,
   DECISION_TREAT,
   DECISION_NO_TREAT,
 } from '../data/scoring.js'
@@ -12,6 +14,7 @@ export default function ResultsScreen({
   lang,
   onLangChange,
   score,
+  mwrdPositive,
   contactPositive,
   highRisk,
   referralCode,
@@ -19,9 +22,10 @@ export default function ResultsScreen({
 }) {
   const [assistantNote, setAssistantNote] = useState(false)
 
-  /* A close/household contact goes straight to treatment: no score is
-     calculated, so no score or breakdown is shown. */
-  const treat = contactPositive || score.treat
+  /* A positive mWRD/LF-LAM result, or a close/household contact, goes straight
+     to treatment: no score is calculated, so no score or breakdown is shown. */
+  const skipsScoring = mwrdPositive || contactPositive
+  const treat = skipsScoring || score.treat
 
   return (
     <Screen fill>
@@ -34,15 +38,23 @@ export default function ResultsScreen({
           </p>
         )}
 
-        {contactPositive ? (
+        {skipsScoring ? (
           <ResultCard
             tone="orange"
             title="TB Treatment Indicated"
-            lines={[
-              CONTACT_RULE,
-              'Close or household TB contact in the previous 12 months. Contact history alone indicates treatment; no symptom score is calculated.',
-              `Refer to nearest PHC with referral code ${referralCode}.`,
-            ]}
+            lines={
+              mwrdPositive
+                ? [
+                    MWRD_RULE,
+                    `${MWRD_NOTIFY} Mycobacterium tuberculosis detected by mWRD or LF-LAM; no symptom score is calculated.`,
+                    `Refer to nearest PHC with referral code ${referralCode}.`,
+                  ]
+                : [
+                    CONTACT_RULE,
+                    'Close or household TB contact in the previous 12 months. Contact history alone indicates treatment; no symptom score is calculated.',
+                    `Refer to nearest PHC with referral code ${referralCode}.`,
+                  ]
+            }
           />
         ) : (
           <>

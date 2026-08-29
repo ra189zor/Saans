@@ -19,18 +19,26 @@ export const SOURCE_NOTE =
 export const TREATMENT_THRESHOLD = 10
 
 /**
- * Cough and fever qualify at "longer than 2 weeks", i.e. strictly more than
- * 14 days — 15 days scores, 14 days does not.
+ * Cough and fever qualify at 14 days or more.
+ *
+ * Score tables say "longer than 2 weeks"; Box A5.3 defines the item as
+ * "2 weeks or more". We follow A5.3 and the algorithm's sensitivity-first
+ * design (85% sensitivity target).
  */
 export const DURATION_THRESHOLD_DAYS = 14
 export const MAX_DURATION_DAYS = 30
 
-export const CONTACT_RULE =
-  'Initiate appropriate TB treatment immediately.'
+export const CONTACT_RULE = 'Initiate appropriate TB treatment immediately.'
+
+export const MWRD_RULE = 'Initiate appropriate TB treatment immediately.'
+export const MWRD_NOTIFY = 'Register and notify to the NTP.'
 
 export const DECISION_TREAT = 'Initiate appropriate TB treatment.'
 export const DECISION_NO_TREAT =
-  'Do not treat with TB treatment. Return in 1–2 weeks.'
+  'Do not treat with TB treatment. Follow-up in 1–2 weeks.'
+
+export const LOWER_RISK_GUIDANCE =
+  'Treat most likely non-TB condition(s). Follow-up in 1–2 weeks. Continue screening only if symptoms persist or worsen.'
 
 /** The nine scored symptom items, in published order. */
 export const SYMPTOM_ITEMS = [
@@ -40,7 +48,12 @@ export const SYMPTOM_ITEMS = [
   { id: 'weightLoss', label: 'Weight loss / failure to thrive', a: 3, b: 5 },
   { id: 'haemoptysis', label: 'Haemoptysis', a: 4, b: 9 },
   { id: 'nightSweats', label: 'Night sweats', a: 2, b: 6 },
-  { id: 'lymphNodes', label: 'Swollen lymph nodes', a: 4, b: 7 },
+  {
+    id: 'lymphNodes',
+    label: 'Swollen lymph nodes (cervical, submandibular or axillary)',
+    a: 4,
+    b: 7,
+  },
   { id: 'tachycardia', label: 'Tachycardia', a: 2, b: 4 },
   /* Tachypnoea is the one negative weight in Algorithm A. */
   { id: 'tachypnoea', label: 'Tachypnoea', a: -1, b: 2 },
@@ -63,8 +76,8 @@ export function deriveFindings({
 } = {}) {
   return {
     ...flags,
-    cough: coughDays > DURATION_THRESHOLD_DAYS,
-    fever: feverDays > DURATION_THRESHOLD_DAYS,
+    cough: coughDays >= DURATION_THRESHOLD_DAYS,
+    fever: feverDays >= DURATION_THRESHOLD_DAYS,
     coughDays,
     feverDays,
   }

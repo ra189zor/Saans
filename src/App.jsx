@@ -7,7 +7,10 @@ import OutOfScopeScreen from './screens/OutOfScopeScreen.jsx'
 import TriageScreen from './screens/TriageScreen.jsx'
 import UrgentScreen from './screens/UrgentScreen.jsx'
 import BreathingScreen from './screens/BreathingScreen.jsx'
+import VisitTypeScreen from './screens/VisitTypeScreen.jsx'
 import RiskProfileScreen from './screens/RiskProfileScreen.jsx'
+import LowerRiskScreen from './screens/LowerRiskScreen.jsx'
+import MwrdScreen from './screens/MwrdScreen.jsx'
 import ContactScreen from './screens/ContactScreen.jsx'
 import SymptomMatrixScreen from './screens/SymptomMatrixScreen.jsx'
 import ResultsScreen from './screens/ResultsScreen.jsx'
@@ -19,6 +22,8 @@ export default function App() {
   const [ageYears, setAgeYears] = useState(null)
   const [highRisk, setHighRisk] = useState(false)
   const [score, setScore] = useState(null)
+  const [visitType, setVisitType] = useState(null)
+  const [mwrdPositive, setMwrdPositive] = useState(false)
   const [contactPositive, setContactPositive] = useState(false)
   const [referralCode, setReferralCode] = useState(null)
   // Visual language state only — content is not translated yet.
@@ -32,12 +37,26 @@ export default function App() {
     setAgeYears(null)
     setHighRisk(false)
     setScore(null)
+    setVisitType(null)
+    setMwrdPositive(false)
     setContactPositive(false)
     setReferralCode(null)
     setScreen('welcome')
   }
 
   switch (screen) {
+    case 'visitType':
+      return (
+        <VisitTypeScreen
+          {...shared}
+          onAnswer={(type) => {
+            setVisitType(type)
+            setScreen('age')
+          }}
+          onBack={() => setScreen('welcome')}
+        />
+      )
+
     case 'age':
       return (
         <AgeGateScreen
@@ -46,7 +65,7 @@ export default function App() {
             setAgeYears(years)
             setScreen(years < MAX_AGE_YEARS ? 'triage' : 'outOfScope')
           }}
-          onBack={() => setScreen('welcome')}
+          onBack={() => setScreen('visitType')}
         />
       )
 
@@ -101,8 +120,37 @@ export default function App() {
           fastTrack={fastTrack}
           onContinue={(isHighRisk) => {
             setHighRisk(isHighRisk)
-            setScreen('contact')
+            /* Lower-risk children on a first visit are treated for the likely
+               non-TB cause and re-evaluated before any scoring. High-risk
+               children, and lower-risk children returning with persistent or
+               worsening symptoms, go on to the mWRD step. */
+            const deferToFollowUp = !isHighRisk && visitType === 'first'
+            setScreen(deferToFollowUp ? 'lowerRisk' : 'mwrd')
           }}
+        />
+      )
+
+    case 'lowerRisk':
+      return (
+        <LowerRiskScreen {...shared} onScheduleFollowUp={startNewScreening} />
+      )
+
+    case 'mwrd':
+      return (
+        <MwrdScreen
+          {...shared}
+          onAnswer={(detected) => {
+            setMwrdPositive(detected)
+            if (detected) {
+              /* A positive rapid result starts treatment: skip scoring. */
+              setScore(null)
+              setReferralCode(makeReferralCode())
+              setScreen('results')
+            } else {
+              setScreen('contact')
+            }
+          }}
+          onBack={() => setScreen('risk')}
         />
       )
 
@@ -121,7 +169,7 @@ export default function App() {
               setScreen('symptoms')
             }
           }}
-          onBack={() => setScreen('risk')}
+          onBack={() => setScreen('mwrd')}
         />
       )
 
@@ -143,6 +191,7 @@ export default function App() {
         <ResultsScreen
           {...shared}
           score={score}
+          mwrdPositive={mwrdPositive}
           contactPositive={contactPositive}
           highRisk={highRisk}
           referralCode={referralCode}
@@ -151,6 +200,6 @@ export default function App() {
       )
 
     default:
-      return <WelcomeScreen {...shared} onStart={() => setScreen('age')} />
+      return <WelcomeScreen {...shared} onStart={() => setScreen('visitType')} />
   }
 }
