@@ -1,0 +1,42 @@
+"""Saans vision API. Run with: uvicorn server.app:app --port 8000 --reload"""
+
+from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+
+from .vision import DEMO_MODE, analyze
+
+MAX_UPLOAD_BYTES = 12 * 1024 * 1024
+
+app = FastAPI(title="Saans Vision API", version="0.1.0")
+
+# The Vite dev server proxies /api, but allow direct calls during development.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_methods=["POST", "GET"],
+    allow_headers=["*"],
+)
+
+
+@app.get("/api/health")
+def health():
+    return {"status": "ok", "demo_mode": DEMO_MODE}
+
+
+@app.post("/api/vision/xray")
+async def vision_xray(image: UploadFile = File(...)):
+    if not (image.content_type or "").startswith("image/"):
+        raise HTTPException(status_code=415, detail="Expected an image upload.")
+
+    data = await image.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="Empty upload.")
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="Image too large.")
+
+    try:
+        return analyze(data)
+    except HTTPException:
+        raise
+    except Exception as exc:  # unreadable / corrupt image
+        raise HTTPException(status_code=422, detail=f"Could not analyze image: {exc}")

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { DANGER_SIGNS, MAX_AGE_YEARS } from './data/dangerSigns.js'
-import { makeReferralCode } from './data/scoring.js'
+import { deriveFindings, scoreFindings, makeReferralCode } from './data/scoring.js'
 import WelcomeScreen from './screens/WelcomeScreen.jsx'
 import AgeGateScreen from './screens/AgeGateScreen.jsx'
 import OutOfScopeScreen from './screens/OutOfScopeScreen.jsx'
@@ -12,7 +12,11 @@ import RiskProfileScreen from './screens/RiskProfileScreen.jsx'
 import LowerRiskScreen from './screens/LowerRiskScreen.jsx'
 import MwrdScreen from './screens/MwrdScreen.jsx'
 import ContactScreen from './screens/ContactScreen.jsx'
-import SymptomMatrixScreen from './screens/SymptomMatrixScreen.jsx'
+import SymptomMatrixScreen, {
+  EMPTY_SYMPTOMS,
+} from './screens/SymptomMatrixScreen.jsx'
+import XrayScanScreen from './screens/XrayScanScreen.jsx'
+import XrayFeaturesScreen from './screens/XrayFeaturesScreen.jsx'
 import ResultsScreen from './screens/ResultsScreen.jsx'
 
 export default function App() {
@@ -26,6 +30,8 @@ export default function App() {
   const [mwrdPositive, setMwrdPositive] = useState(false)
   const [contactPositive, setContactPositive] = useState(false)
   const [referralCode, setReferralCode] = useState(null)
+  const [symptoms, setSymptoms] = useState(EMPTY_SYMPTOMS)
+  const [xray, setXray] = useState(null)
   // Visual language state only — content is not translated yet.
   const [lang, setLang] = useState('en')
 
@@ -41,6 +47,8 @@ export default function App() {
     setMwrdPositive(false)
     setContactPositive(false)
     setReferralCode(null)
+    setSymptoms(EMPTY_SYMPTOMS)
+    setXray(null)
     setScreen('welcome')
   }
 
@@ -178,11 +186,45 @@ export default function App() {
         <SymptomMatrixScreen
           {...shared}
           ageYears={ageYears}
+          symptoms={symptoms}
+          onChange={(patch) => setSymptoms((prev) => ({ ...prev, ...patch }))}
+          onScanXray={() => setScreen('xrayScan')}
           onCalculate={(result) => {
             setScore(result)
             setReferralCode(makeReferralCode())
             setScreen('results')
           }}
+        />
+      )
+
+    case 'xrayScan':
+      return (
+        <XrayScanScreen
+          {...shared}
+          onAnalyzed={({ analysis, capturedDataUrl }) => {
+            setXray({ analysis, capturedDataUrl })
+            setScreen('xrayFeatures')
+          }}
+          onBack={() => setScreen('symptoms')}
+        />
+      )
+
+    case 'xrayFeatures':
+      return (
+        <XrayFeaturesScreen
+          {...shared}
+          analysis={xray?.analysis}
+          onConfirm={(confirmedCxr) => {
+            /* An X-ray was read, so Algorithm A applies: the symptom items are
+               rescored with Sum A weights and combined with Sum B. */
+            const findings = deriveFindings(symptoms)
+            setScore(
+              scoreFindings(findings, { algorithm: 'A', cxr: confirmedCxr })
+            )
+            setReferralCode(makeReferralCode())
+            setScreen('results')
+          }}
+          onBack={() => setScreen('xrayScan')}
         />
       )
 
@@ -195,6 +237,7 @@ export default function App() {
           contactPositive={contactPositive}
           highRisk={highRisk}
           referralCode={referralCode}
+          heatmapOverlay={xray?.analysis?.heatmap_overlay ?? null}
           onRestart={startNewScreening}
         />
       )

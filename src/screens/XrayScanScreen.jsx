@@ -1,0 +1,240 @@
+import { useEffect, useRef, useState } from 'react'
+import Screen, { COLUMN } from '../components/Screen.jsx'
+import TopBar from '../components/TopBar.jsx'
+import BackLink from '../components/BackLink.jsx'
+
+const GUIDANCE = 'Hold the chest X-ray film against a bright light or white screen.'
+
+/**
+ * Camera capture with an upload fallback. Many field devices have no usable
+ * rear camera (or deny permission), so the upload path is always offered
+ * rather than being a hidden last resort.
+ */
+export default function XrayScanScreen({
+  lang,
+  onLangChange,
+  onAnalyzed,
+  onBack,
+}) {
+  const videoRef = useRef(null)
+  const fileInputRef = useRef(null)
+  const streamRef = useRef(null)
+
+  const [cameraState, setCameraState] = useState('starting') // starting | live | unavailable
+  const [capture, setCapture] = useState(null) // { dataUrl, blob }
+  const [status, setStatus] = useState('idle') // idle | analyzing | error
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function startCamera() {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setCameraState('unavailable')
+        return
+      }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' } },
+          audio: false,
+        })
+        if (cancelled) {
+          stream.getTracks().forEach((track) => track.stop())
+          return
+        }
+        streamRef.current = stream
+        if (videoRef.current) videoRef.current.srcObject = stream
+        setCameraState('live')
+      } catch {
+        if (!cancelled) setCameraState('unavailable')
+      }
+    }
+
+    startCamera()
+    return () => {
+      cancelled = true
+      streamRef.current?.getTracks().forEach((track) => track.stop())
+      streamRef.current = null
+    }
+  }, [])
+
+  function stopCamera() {
+    streamRef.current?.getTracks().forEach((track) => track.stop())
+    streamRef.current = null
+  }
+
+  function captureFrame() {
+    const video = videoRef.current
+    if (!video || !video.videoWidth) return
+
+    const canvas = document.createElement('canvas')
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+    canvas.getContext('2d').drawImage(video, 0, 0)
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) return
+        setCapture({ dataUrl: canvas.toDataURL('image/jpeg', 0.92), blob })
+        stopCamera()
+        setCameraState('unavailable')
+      },
+      'image/jpeg',
+      0.92
+    )
+  }
+
+  function onFilePicked(event) {
+    const file = event.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => setCapture({ dataUrl: String(reader.result), blob: file })
+    reader.readAsDataURL(file)
+    stopCamera()
+  }
+
+  async function analyze() {
+    if (!capture) return
+    setStatus('analyzing')
+    setError(null)
+
+    const body = new FormData()
+    body.append('image', capture.blob, 'xray.jpg')
+
+    try {
+      const response = await fetch('/api/vision/xray', { method: 'POST', body })
+      if (!response.ok) {
+        const detail = await response.text()
+        throw new Error(`${response.status} ${detail.slice(0, 120)}`)
+      }
+      const analysis = await response.json()
+      onAnalyzed({ analysis, capturedDataUrl: capture.dataUrl })
+    } catch (err) {
+      setStatus('error')
+      setError(String(err.message || err))
+    }
+  }
+
+  return (
+    <Screen fill>
+      <TopBar lang={lang} onLangChange={onLangChange} />
+
+      <main className={`${COLUMN} min-h-0 flex-1 overflow-y-auto py-6 md:py-10`}>
+        <BackLink onClick={onBack} />
+
+        <h1 className="mt-6 text-[1.5rem] leading-snug font-medium text-balance text-fg md:text-[2rem] md:leading-[1.3]">
+          Scan chest X-ray
+        </h1>
+
+        <div className="mt-6 overflow-hidden rounded-xl border border-hairline bg-surface">
+          <div className="relative aspect-[4/3] w-full bg-canvas">
+            {capture ? (
+              <img
+                src={capture.dataUrl}
+                alt="Captured chest X-ray"
+                className="h-full w-full object-contain"
+              />
+            ) : (
+              <>
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="h-full w-full object-cover"
+                />
+                {/* Framing guide */}
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-6 rounded-lg border-2 border-white/25"
+                />
+                {cameraState !== 'live' && (
+                  <div className="absolute inset-0 flex items-center justify-center px-6 text-center">
+                    <p className="text-sm leading-relaxed text-muted md:text-base">
+                      {cameraState === 'starting'
+                        ? 'Starting camera…'
+                        : 'Camera unavailable on this device. Use “Upload image” below.'}
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          <p className="border-t border-hairline px-5 py-4 text-sm leading-relaxed text-muted md:text-base">
+            {GUIDANCE}
+          </p>
+        </div>
+
+        {status === 'error' && (
+          <p
+            aria-live="polite"
+            className="mt-4 rounded-xl border border-danger px-4 py-3 text-sm leading-relaxed text-fg md:text-base"
+          >
+            Analysis failed: {error}. Check that the vision service is running.
+          </p>
+        )}
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={onFilePicked}
+          className="sr-only"
+          aria-label="Upload chest X-ray image"
+        />
+      </main>
+
+      <footer className={`${COLUMN} flex flex-col gap-3 pt-4 pb-8 md:gap-4 md:pb-12`}>
+        {capture ? (
+          <>
+            <PrimaryButton onClick={analyze} disabled={status === 'analyzing'}>
+              {status === 'analyzing' ? 'Analyzing…' : 'Analyze X-ray'}
+            </PrimaryButton>
+            <SecondaryButton
+              onClick={() => {
+                setCapture(null)
+                setStatus('idle')
+              }}
+            >
+              Retake
+            </SecondaryButton>
+          </>
+        ) : (
+          <>
+            <PrimaryButton onClick={captureFrame} disabled={cameraState !== 'live'}>
+              Capture
+            </PrimaryButton>
+            <SecondaryButton onClick={() => fileInputRef.current?.click()}>
+              Upload image
+            </SecondaryButton>
+          </>
+        )}
+      </footer>
+    </Screen>
+  )
+}
+
+function PrimaryButton({ children, onClick, disabled }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="flex min-h-[4.75rem] w-full items-center justify-center rounded-xl bg-teal px-8 text-xl font-bold tracking-tight text-white transition-colors duration-150 outline-none select-none hover:bg-teal-hover focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 focus-visible:ring-offset-canvas active:bg-teal-hover disabled:cursor-not-allowed disabled:bg-surface disabled:text-faint md:min-h-[5.5rem] md:text-2xl"
+    >
+      {children}
+    </button>
+  )
+}
+
+function SecondaryButton({ children, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex min-h-[4rem] w-full items-center justify-center rounded-xl border border-hairline bg-surface px-8 text-base font-semibold text-fg transition-colors duration-150 outline-none select-none hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 focus-visible:ring-offset-canvas active:bg-surface-hover md:min-h-[4.5rem] md:text-lg"
+    >
+      {children}
+    </button>
+  )
+}

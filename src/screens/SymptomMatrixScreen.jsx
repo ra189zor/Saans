@@ -22,45 +22,64 @@ const TOGGLES = [
   { id: 'lymphNodes', label: 'Painless, enlarged (swollen) lymph nodes?' },
 ]
 
+/** Blank answer set; held by App so it survives the X-ray excursion. */
+export const EMPTY_SYMPTOMS = {
+  coughDays: 0,
+  feverDays: 0,
+  respiratoryRate: '',
+  heartRate: '',
+  lethargy: false,
+  weightLoss: false,
+  haemoptysis: false,
+  nightSweats: false,
+  lymphNodes: false,
+  tachypnoea: false,
+  tachycardia: false,
+}
+
 export default function SymptomMatrixScreen({
   lang,
   onLangChange,
   ageYears,
+  symptoms,
+  onChange,
   onCalculate,
+  onScanXray,
 }) {
-  const [coughDays, setCoughDays] = useState(0)
-  const [feverDays, setFeverDays] = useState(0)
-  const [respiratoryRate, setRespiratoryRate] = useState('')
-  const [heartRate, setHeartRate] = useState('')
-  const [flags, setFlags] = useState({
-    lethargy: false,
-    weightLoss: false,
-    haemoptysis: false,
-    nightSweats: false,
-    lymphNodes: false,
-    tachypnoea: false,
-    tachycardia: false,
-  })
   const [aiNote, setAiNote] = useState(false)
+
+  const {
+    coughDays,
+    feverDays,
+    respiratoryRate,
+    heartRate,
+    ...flags
+  } = symptoms
 
   const thresholds = vitalThresholds(ageYears)
 
   function setFlag(id, value) {
-    setFlags((prev) => ({ ...prev, [id]: value }))
+    onChange({ [id]: value })
   }
 
   /* Entering a rate auto-suggests the matching item. The toggle underneath
      stays manually overridable afterwards. */
   function onRespiratoryRate(value) {
-    setRespiratoryRate(value)
     const suggested = isTachypnoeic(value, ageYears)
-    if (suggested !== null) setFlag('tachypnoea', suggested)
+    onChange(
+      suggested === null
+        ? { respiratoryRate: value }
+        : { respiratoryRate: value, tachypnoea: suggested }
+    )
   }
 
   function onHeartRate(value) {
-    setHeartRate(value)
     const suggested = isTachycardic(value, ageYears)
-    if (suggested !== null) setFlag('tachycardia', suggested)
+    onChange(
+      suggested === null
+        ? { heartRate: value }
+        : { heartRate: value, tachycardia: suggested }
+    )
   }
 
   function submit() {
@@ -78,7 +97,7 @@ export default function SymptomMatrixScreen({
           label="Cough duration"
           qualifies="Counts as cough longer than 2 weeks"
           value={coughDays}
-          onChange={setCoughDays}
+          onChange={(days) => onChange({ coughDays: days })}
         />
 
         <div className="mt-8 md:mt-10">
@@ -87,7 +106,7 @@ export default function SymptomMatrixScreen({
             label="Fever duration"
             qualifies="Counts as fever longer than 2 weeks"
             value={feverDays}
-            onChange={setFeverDays}
+            onChange={(days) => onChange({ feverDays: days })}
           />
         </div>
 
@@ -140,9 +159,7 @@ export default function SymptomMatrixScreen({
 
         <div className="mt-9 md:mt-11">
           <div className="grid grid-cols-2 gap-3 md:gap-4">
-            <SecondaryButton onClick={() => setAiNote(true)}>
-              Scan X-ray
-            </SecondaryButton>
+            <SecondaryButton onClick={onScanXray}>Scan X-ray</SecondaryButton>
             <SecondaryButton onClick={() => setAiNote(true)}>
               Record Cough
             </SecondaryButton>

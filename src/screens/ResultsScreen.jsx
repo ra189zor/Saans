@@ -8,6 +8,7 @@ import {
   MWRD_NOTIFY,
   DECISION_TREAT,
   DECISION_NO_TREAT,
+  TREATMENT_THRESHOLD,
 } from '../data/scoring.js'
 
 export default function ResultsScreen({
@@ -18,6 +19,7 @@ export default function ResultsScreen({
   contactPositive,
   highRisk,
   referralCode,
+  heatmapOverlay,
   onRestart,
 }) {
   const [assistantNote, setAssistantNote] = useState(false)
@@ -26,6 +28,14 @@ export default function ResultsScreen({
      to treatment: no score is calculated, so no score or breakdown is shown. */
   const skipsScoring = mwrdPositive || contactPositive
   const treat = skipsScoring || score.treat
+
+  const usedXray = !skipsScoring && score.algorithm === 'A'
+  const symptomItems = skipsScoring
+    ? []
+    : score.items.filter((item) => item.group === 'symptom')
+  const cxrItems = skipsScoring
+    ? []
+    : score.items.filter((item) => item.group === 'cxr')
 
   return (
     <Screen fill>
@@ -58,9 +68,27 @@ export default function ResultsScreen({
           />
         ) : (
           <>
-            <p className="text-[0.5625rem] font-medium tracking-[0.16em] text-faint uppercase md:text-[0.6875rem] md:tracking-[0.2em]">
-              Risk Score · Algorithm {score.algorithm}
-            </p>
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-[0.5625rem] font-medium tracking-[0.16em] text-faint uppercase md:text-[0.6875rem] md:tracking-[0.2em]">
+                  Risk Score
+                </p>
+                <p className="mt-1 text-sm text-muted md:text-base">
+                  {usedXray
+                    ? 'Algorithm A (with chest X-ray)'
+                    : 'Algorithm B (without X-ray)'}
+                </p>
+              </div>
+
+              {heatmapOverlay && (
+                <img
+                  src={heatmapOverlay}
+                  alt="Chest X-ray heatmap"
+                  className="h-16 w-16 shrink-0 rounded-lg border border-hairline object-cover md:h-20 md:w-20"
+                />
+              )}
+            </div>
+
             <AnimatedScore value={score.total} />
 
             <section className="mt-8 border-t border-hairline pt-6 md:mt-10">
@@ -73,22 +101,31 @@ export default function ResultsScreen({
                   No scoring findings recorded.
                 </p>
               ) : (
-                <ul className="mt-4 flex flex-col gap-3">
-                  {score.items.map((item) => (
-                    <li
-                      key={item.id}
-                      className="flex items-baseline justify-between gap-4"
-                    >
-                      <span className="text-base leading-snug text-fg md:text-lg">
-                        {item.label}
-                      </span>
-                      <span className="font-display shrink-0 text-base font-semibold text-muted tabular-nums md:text-lg">
-                        {item.points > 0 ? `+${item.points}` : item.points}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                <>
+                  <ScoreGroup
+                    heading={usedXray ? 'Sum A · Signs and symptoms' : null}
+                    items={symptomItems}
+                    total={usedXray ? score.symptomTotal : null}
+                    emptyNote="No symptom findings recorded."
+                  />
+                  {usedXray && (
+                    <ScoreGroup
+                      heading="Sum B · Chest X-ray"
+                      items={cxrItems}
+                      total={score.cxrTotal}
+                      emptyNote="No CXR features confirmed."
+                    />
+                  )}
+                </>
               )}
+
+              <p className="mt-6 border-t border-hairline pt-4 text-sm leading-relaxed text-muted md:text-base">
+                {usedXray
+                  ? `Sum A ${score.symptomTotal} + Sum B ${score.cxrTotal} = ${score.total}. `
+                  : `Total ${score.total}. `}
+                Treatment is indicated when the total is greater than{' '}
+                {TREATMENT_THRESHOLD}.
+              </p>
             </section>
 
             <div className="mt-8 md:mt-10">
@@ -189,6 +226,44 @@ function AnimatedScore({ value }) {
     >
       {shown}
     </p>
+  )
+}
+
+function ScoreGroup({ heading, items, total, emptyNote }) {
+  return (
+    <div className={heading ? 'mt-5 first:mt-4' : 'mt-4'}>
+      {heading && (
+        <div className="flex items-baseline justify-between gap-4">
+          <p className="text-[0.5625rem] font-medium tracking-[0.14em] text-muted uppercase md:text-[0.625rem] md:tracking-[0.18em]">
+            {heading}
+          </p>
+          {total !== null && (
+            <span className="font-display shrink-0 text-sm font-semibold text-fg tabular-nums md:text-base">
+              {total}
+            </span>
+          )}
+        </div>
+      )}
+
+      {items.length === 0 ? (
+        <p className="mt-2 text-sm leading-relaxed text-faint md:text-base">
+          {emptyNote}
+        </p>
+      ) : (
+        <ul className={`flex flex-col gap-3 ${heading ? 'mt-3' : ''}`}>
+          {items.map((item) => (
+            <li key={item.id} className="flex items-baseline justify-between gap-4">
+              <span className="text-base leading-snug text-fg md:text-lg">
+                {item.label}
+              </span>
+              <span className="font-display shrink-0 text-base font-semibold text-muted tabular-nums md:text-lg">
+                {item.points > 0 ? `+${item.points}` : item.points}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   )
 }
 

@@ -68,6 +68,31 @@ export const CXR_ITEMS = [
   { id: 'effusion', label: 'Effusion', points: 8 },
 ]
 
+/** Aliases the vision service may return for a CXR feature. */
+const CXR_ALIASES = {
+  cavity: 'cavity',
+  cavities: 'cavity',
+  'cavity/cavities': 'cavity',
+  'enlarged lymph nodes': 'enlargedLymphNodes',
+  'lymph nodes': 'enlargedLymphNodes',
+  opacity: 'opacities',
+  opacities: 'opacities',
+  miliary: 'miliary',
+  'miliary pattern': 'miliary',
+  effusion: 'effusion',
+  effusions: 'effusion',
+}
+
+/** Map a suggested feature string from the vision API onto a CXR_ITEMS id. */
+export function cxrIdFromLabel(value) {
+  const key = String(value ?? '').trim().toLowerCase()
+  if (CXR_ALIASES[key]) return CXR_ALIASES[key]
+  const match = CXR_ITEMS.find(
+    (item) => item.id.toLowerCase() === key || item.label.toLowerCase() === key
+  )
+  return match ? match.id : null
+}
+
 /** Cough/fever are durations; the other seven are booleans. */
 export function deriveFindings({
   coughDays = 0,
