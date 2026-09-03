@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Algorithm A Flowchart — Saans Paediatric TB Screening</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    :root {
+      --bg: #090e17;
+      --card-bg: #111a2e;
+      --border: #1e293b;
+      --teal: #0d9488;
+      --teal-light: #2dd4bf;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --amber: #f59e0b;
+      --rose: #f43f5e;
+      --blue: #38bdf8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      padding: 2.5rem 1.5rem;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    header {
+      margin-bottom: 2.5rem;
+      text-align: center;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 0.35rem 0.85rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      background: rgba(13, 148, 136, 0.15);
+      color: var(--teal-light);
+      border: 1px solid rgba(13, 148, 136, 0.3);
+      margin-bottom: 1rem;
+    }
+
+    h1 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 2.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.5rem;
+      background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    p.subtitle {
+      color: var(--text-muted);
+      font-size: 1.1rem;
+      max-width: 700px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 1rem;
+      padding: 2rem;
+      margin-bottom: 2.5rem;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+    }
+
+    .card-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.4rem;
+      font-weight: 600;
+      margin-bottom: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      color: var(--teal-light);
+    }
+
+    .mermaid {
+      display: flex;
+      justify-content: center;
+      padding: 1.5rem 0;
+      background: #0d1527;
+      border-radius: 0.75rem;
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+      font-size: 0.95rem;
+    }
+
+    th, td {
+      padding: 0.85rem 1rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    th {
+      color: var(--text-muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+    }
+
+    tr:hover {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .tag-neg {
+      background: rgba(244, 63, 94, 0.15);
+      color: #fda4af;
+      padding: 0.2rem 0.5rem;
+      border-radius: 0.375rem;
+      font-weight: 600;
+    }
+
+    .tag-pos {
+      background: rgba(13, 148, 136, 0.15);
+      color: var(--teal-light);
+      padding: 0.2rem 0.5rem;
+      border-radius: 0.375rem;
+      font-weight: 600;
+    }
+
+    .tag-high {
+      background: rgba(245, 158, 11, 0.15);
+      color: #fde68a;
+      padding: 0.2rem 0.5rem;
+      border-radius: 0.375rem;
+      font-weight: 600;
+    }
+
+    .formula-box {
+      background: #0d1527;
+      border: 1px solid var(--teal);
+      border-radius: 0.75rem;
+      padding: 1.25rem 1.5rem;
+      margin: 1.5rem 0;
+      font-family: 'Outfit', monospace;
+      font-size: 1.15rem;
+      color: #e2e8f0;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="badge">WHO Module 5 (2022) Annex 5 Implementation</div>
+      <h1>Algorithm A: Decision & Question Flow</h1>
+      <p class="subtitle">Complete clinical question sequence and chest X-ray scoring pathway for paediatric pulmonary TB in children under 5.</p>
+    </header>
+
+    <!-- Main Decision Flow Diagram -->
+    <div class="card">
+      <div class="card-title">1. Clinical Questionnaire & Decision Flowchart</div>
+      <div class="mermaid">
+        flowchart TD
+          Start(["Start Screening"]) --> Q1["Question 1: Visit Type<br/>(First visit or 1-2 wk follow-up)"]
+          
+          Q1 --> Q2["Question 2: Child Age<br/>(Gate: Under 5 years)"]
+          Q2 -- ">= 5 yrs" --> OutScope["Out of Scope"]
+          Q2 -- "< 5 yrs" --> Q3["Question 3: Triage IMCI Danger Signs<br/>(10 Questions)"]
+          
+          Q3 -- "Urgent Danger Sign" --> Urgent["Emergency Care / Stabilize"]
+          Q3 -- "Chest Indrawing Only" --> Breathing["Breathing Check<br/>(Evaluate severity)"]
+          Breathing -- "Severe" --> Urgent
+          Breathing -- "Not Severe" --> FastTrack["Fast-Track High Risk"]
+          Q3 -- "No Danger Signs" --> Q4["Question 4: Risk Profile<br/>(HIV & MUAC Tape)"]
+          FastTrack --> Q4
+          
+          Q4 --> CheckRisk{"Risk & Visit Check"}
+          CheckRisk -- "Lower Risk & First Visit" --> LowerRisk["Treat non-TB cause<br/>Follow-up in 1-2 weeks"]
+          CheckRisk -- "High Risk OR Follow-up" --> Q5["Question 5: mWRD / LF-LAM<br/>(Rapid GeneXpert / urine LAM)"]
+          
+          Q5 -- "MTB Detected" --> TreatDirect1["Initiate TB Treatment Immediately<br/>(Skip Scoring)"]
+          Q5 -- "Negative / Pending / Not Done" --> Q6["Question 6: TB Contact History<br/>(Household contact in past 12 mo)"]
+          
+          Q6 -- "Contact Positive" --> TreatDirect2["Initiate TB Treatment Immediately<br/>(Skip Scoring)"]
+          Q6 -- "No Contact" --> Q7["Question 7: Symptom Matrix<br/>(9 Symptoms & Vital signs)"]
+          
+          Q7 -- "Click 'Scan X-ray'" --> AlgoAPath["ALGORITHM A PATHWAY"]
+          Q7 -- "Click 'Calculate Risk Score'" --> AlgoBPath["ALGORITHM B (No X-ray)"]
+          
+          subgraph ALGO_A ["Algorithm A (With Chest X-ray)"]
+            AlgoAPath --> Scan["Step A1: Capture / Upload X-ray Film"]
+            Scan --> AI["Step A2: Vision AI Inference<br/>(DenseNet121 + Grad-CAM Heatmap)"]
+            AI --> Confirm["Step A3: Health Worker Confirms CXR Features<br/>(Cavity, Lymph Nodes, Opacities, Miliary, Effusion)"]
+            Confirm --> Score["Step A4: Calculate Total<br/>Total = Sum A (Symptoms) + Sum B (CXR)"]
+            Score --> Decision{"Total > 10 ?"}
+            Decision -- "Yes (> 10)" --> Treat["TB Treatment Indicated<br/>(Generate Referral Slip)"]
+            Decision -- "No (<= 10)" --> NoTreat["Do Not Treat with TB Regimen<br/>(Review in 1-2 weeks)"]
+          end
+      </div>
+    </div>
+
+    <!-- Scoring Formulas & Details -->
+    <div class="card">
+      <div class="card-title">2. Algorithm A Mathematical Model</div>
+      <div class="formula-box">
+        Total Score = Sum A (Symptoms with Algorithm A Weights) + Sum B (Confirmed CXR Features)<br>
+        <strong>Decision: Initiate TB Treatment if Total Score &gt; 10</strong>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Component</th>
+            <th>Feature / Question</th>
+            <th>Criteria / Input</th>
+            <th>Algorithm A Points</th>
+            <th>Clinical Significance</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Sum A</strong></td>
+            <td>Cough &gt; 2 weeks</td>
+            <td>Duration slider &ge; 14 days</td>
+            <td><span class="tag-pos">+2</span></td>
+            <td>Persistent respiratory symptom</td>
+          </tr>
+          <tr>
+            <td><strong>Sum A</strong></td>
+            <td>Fever &gt; 2 weeks</td>
+            <td>Duration slider &ge; 14 days</td>
+            <td><span class="tag-pos">+5</span></td>
+            <td>Prolonged unexplained fever</td>
+          </tr>
+          <tr>
+            <td><strong>Sum A</strong></td>
+            <td>Lethargy</td>
+            <td>Toggle Yes</td>
+            <td><span class="tag-pos">+3</span></td>
+            <td>Reduced playfulness and activity</td>
+          </tr>
+          <tr>
+            <td><strong>Sum A</strong></td>
+            <td>Weight loss / failure to thrive</td>
+            <td>Toggle Yes</td>
+            <td><span class="tag-pos">+3</span></td>
+            <td>Growth faltering</td>
+          </tr>
+          <tr>
+            <td><strong>Sum A</strong></td>
+            <td>Haemoptysis</td>
+            <td>Toggle Yes</td>
+            <td><span class="tag-pos">+4</span></td>
+            <td>Coughing up blood</td>
+          </tr>
+          <tr>
+            <td><strong>Sum A</strong></td>
+            <td>Night sweats</td>
+            <td>Toggle Yes</td>
+            <td><span class="tag-pos">+2</span></td>
+            <td>Constitutional symptom</td>
+          </tr>
+          <tr>
+            <td><strong>Sum A</strong></td>
+            <td>Swollen lymph nodes</td>
+            <td>Toggle Yes</td>
+            <td><span class="tag-pos">+4</span></td>
+            <td>Cervical, axillary, or submandibular</td>
+          </tr>
+          <tr>
+            <td><strong>Sum A</strong></td>
+            <td>Tachycardia</td>
+            <td>Heart rate &gt; age threshold</td>
+            <td><span class="tag-pos">+2</span></td>
+            <td>Resting tachycardia</td>
+          </tr>
+          <tr>
+            <td><strong>Sum A</strong></td>
+            <td>Tachypnoea</td>
+            <td>Resp. rate &gt; age threshold</td>
+            <td><span class="tag-neg">-1</span></td>
+            <td><strong>Negative weight</strong>: On CXR, tachypnoea often signifies acute pneumonia rather than TB</td>
+          </tr>
+          <tr>
+            <td><strong>Sum B</strong></td>
+            <td>CXR: Cavity</td>
+            <td>Confirmed by Health Worker</td>
+            <td><span class="tag-pos">+6</span></td>
+            <td>Cavitary TB lesion</td>
+          </tr>
+          <tr>
+            <td><strong>Sum B</strong></td>
+            <td>CXR: Enlarged lymph nodes</td>
+            <td>Confirmed by Health Worker</td>
+            <td><span class="tag-high">+17</span></td>
+            <td><strong>Decisive</strong>: 17 &gt; 10 immediately triggers treatment!</td>
+          </tr>
+          <tr>
+            <td><strong>Sum B</strong></td>
+            <td>CXR: Opacities</td>
+            <td>Confirmed by Health Worker</td>
+            <td><span class="tag-pos">+5</span></td>
+            <td>Parenchymal consolidation / infiltration</td>
+          </tr>
+          <tr>
+            <td><strong>Sum B</strong></td>
+            <td>CXR: Miliary pattern</td>
+            <td>Confirmed by Health Worker</td>
+            <td><span class="tag-high">+15</span></td>
+            <td><strong>Decisive</strong>: 15 &gt; 10 immediately triggers treatment!</td>
+          </tr>
+          <tr>
+            <td><strong>Sum B</strong></td>
+            <td>CXR: Effusion</td>
+            <td>Confirmed by Health Worker</td>
+            <td><span class="tag-pos">+8</span></td>
+            <td>Pleural fluid collection</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Sequence Diagram -->
+    <div class="card">
+      <div class="card-title">3. Execution Sequence: Health Worker & AI Assistant</div>
+      <div class="mermaid">
+        sequenceDiagram
+          actor HW as Health Worker
+          participant UI as React UI (App.jsx)
+          participant Engine as scoring.js
+          participant API as Flask Vision API (/api/vision/xray)
+          
+          HW->>UI: Selects "Scan X-ray" on SymptomMatrixScreen
+          UI->>HW: Displays Camera / File Upload UI
+          HW->>UI: Captures / Uploads X-ray
+          UI->>API: POST /api/vision/xray (Multipart image)
+          API-->>UI: { tb_probability: 0.86, suggested_features: ["opacities", "enlarged lymph nodes"], heatmap }
+          UI->>HW: Shows Heatmap & Pre-checks Suggestions (XrayFeaturesScreen)
+          HW->>UI: Confirms / Edits CXR Features and clicks "Confirm"
+          UI->>Engine: scoreFindings(symptoms, { algorithm: 'A', cxr })
+          Engine-->>UI: { symptomTotal, cxrTotal, total, treat: total > 10 }
+          UI->>HW: Shows ResultsScreen with Referral Slip & Breakdown
+      </div>
+    </div>
+  </div>
+
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'dark',
+      themeVariables: {
+        darkMode: true,
+        background: '#0d1527',
+        primaryColor: '#0d9488',
+        primaryTextColor: '#f8fafc',
+        primaryBorderColor: '#1e293b',
+        lineColor: '#38bdf8',
+        secondaryColor: '#1e293b',
+        tertiaryColor: '#111a2e'
+      }
+    });
+  </script>
+</body>
+</html>
