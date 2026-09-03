@@ -6,3 +6,7 @@ dist-ssr
 .vite
 .env
 .claude
+# trained model weights (see backend/models/README.md)
+backend/models/*.h5
+backend/models/*.pt
+server/weights/
