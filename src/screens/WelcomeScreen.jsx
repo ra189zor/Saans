@@ -1,11 +1,13 @@
 import { Fragment } from 'react'
 import Screen, { COLUMN } from '../components/Screen.jsx'
 import TopBar from '../components/TopBar.jsx'
+import { useI18n } from '../i18n/index.jsx'
 
-export default function WelcomeScreen({ onStart, lang, onLangChange }) {
+export default function WelcomeScreen({ onStart }) {
+  const { t } = useI18n()
   return (
     <Screen>
-      <TopBar lang={lang} onLangChange={onLangChange} />
+      <TopBar />
 
       <main className={`${COLUMN} flex flex-1 flex-col justify-center py-10 text-center`}>
         <LungMark />
@@ -22,10 +24,10 @@ export default function WelcomeScreen({ onStart, lang, onLangChange }) {
           سانس
         </p>
 
-        <Divider parts={['Paediatric TB Screening', 'WHO Algorithm B']} />
+        <Divider parts={[t('welcome.dividerLeft'), t('welcome.dividerRight')]} />
 
         <p className="text-lg leading-relaxed text-muted md:text-2xl">
-          Protecting every breath
+          {t('welcome.tagline')}
         </p>
       </main>
 
@@ -35,11 +37,11 @@ export default function WelcomeScreen({ onStart, lang, onLangChange }) {
           onClick={onStart}
           className="flex min-h-[4.75rem] w-full items-center justify-center rounded-xl bg-teal px-8 text-xl font-bold tracking-tight text-white transition-colors duration-150 outline-none select-none hover:bg-teal-hover focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 focus-visible:ring-offset-canvas active:bg-teal-hover md:min-h-[5.5rem] md:text-2xl"
         >
-          Start Screening
+          {t('welcome.start')}
         </button>
 
         <p className="mt-6 text-center text-[0.6875rem] leading-relaxed text-faint md:text-xs">
-          v0.1 · Offline-ready · Designed for Lady Health Workers, Pakistan
+          {t('welcome.footer')}
         </p>
       </footer>
     </Screen>

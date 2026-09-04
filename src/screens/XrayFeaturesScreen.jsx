@@ -2,6 +2,7 @@ import { useState } from 'react'
 import Screen, { COLUMN } from '../components/Screen.jsx'
 import TopBar from '../components/TopBar.jsx'
 import BackLink from '../components/BackLink.jsx'
+import { useI18n } from '../i18n/index.jsx'
 import { CXR_ITEMS, cxrIdFromLabel } from '../data/scoring.js'
 
 /**
@@ -9,12 +10,11 @@ import { CXR_ITEMS, cxrIdFromLabel } from '../data/scoring.js'
  * before anything is scored. Nothing here is decided by the model alone.
  */
 export default function XrayFeaturesScreen({
-  lang,
-  onLangChange,
   analysis,
   onConfirm,
   onBack,
 }) {
+  const { t } = useI18n()
   const [selected, setSelected] = useState(() => {
     const initial = {}
     for (const suggestion of analysis?.suggested_cxr_features ?? []) {
@@ -35,25 +35,25 @@ export default function XrayFeaturesScreen({
 
   return (
     <Screen fill>
-      <TopBar lang={lang} onLangChange={onLangChange} />
+      <TopBar />
 
       <main className={`${COLUMN} min-h-0 flex-1 overflow-y-auto py-6 md:py-10`}>
         <BackLink onClick={onBack} />
 
         <h1 className="mt-6 text-[1.5rem] leading-snug font-medium text-balance text-fg md:text-[2rem] md:leading-[1.3]">
-          Confirm chest X-ray features
+          {t('xrayFeatures.title')}
         </h1>
 
         {analysis?.heatmap_overlay && (
           <figure className="mt-6 overflow-hidden rounded-xl border border-hairline bg-surface">
             <img
               src={analysis.heatmap_overlay}
-              alt="Chest X-ray with model attention heatmap overlay"
+              alt={t('xrayFeatures.overlayAlt')}
               className="block w-full"
             />
             <figcaption className="flex items-baseline justify-between gap-4 border-t border-hairline px-5 py-4">
               <span className="text-[0.5625rem] font-medium tracking-[0.16em] text-faint uppercase md:text-[0.6875rem] md:tracking-[0.2em]">
-                Model TB probability
+                {t('xrayFeatures.probabilityLabel')}
               </span>
               <span className="font-display text-xl font-semibold text-fg tabular-nums md:text-2xl">
                 {percent === null ? '—' : `${percent}%`}
@@ -63,15 +63,14 @@ export default function XrayFeaturesScreen({
         )}
 
         <p className="mt-5 text-sm leading-relaxed text-faint md:text-base">
-          Suggestions are pre-checked from the image analysis. Confirm or change
-          them before scoring.
+          {t('xrayFeatures.hint')}
         </p>
 
         <div className="mt-5 flex flex-col gap-3 md:gap-4">
           {CXR_ITEMS.map((item) => (
             <FeatureRow
               key={item.id}
-              label={item.label}
+              label={t(`cxrItems.${item.id}`)}
               points={item.points}
               checked={Boolean(selected[item.id])}
               onChange={() =>
@@ -83,7 +82,7 @@ export default function XrayFeaturesScreen({
 
         <div className="mt-6 flex items-baseline justify-between gap-4 border-t border-hairline pt-5">
           <span className="text-[0.5625rem] font-medium tracking-[0.16em] text-faint uppercase md:text-[0.6875rem] md:tracking-[0.2em]">
-            Sum B
+            {t('xrayFeatures.sumB')}
           </span>
           <span className="font-display text-xl font-semibold text-fg tabular-nums md:text-2xl">
             {sumB}
@@ -97,7 +96,7 @@ export default function XrayFeaturesScreen({
           onClick={() => onConfirm(selected)}
           className="flex min-h-[4.75rem] w-full items-center justify-center rounded-xl bg-teal px-8 text-xl font-bold tracking-tight text-white transition-colors duration-150 outline-none select-none hover:bg-teal-hover focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 focus-visible:ring-offset-canvas active:bg-teal-hover md:min-h-[5.5rem] md:text-2xl"
         >
-          Confirm and calculate
+          {t('xrayFeatures.confirm')}
         </button>
       </footer>
     </Screen>
@@ -111,7 +110,7 @@ function FeatureRow({ label, points, checked, onChange }) {
       role="checkbox"
       aria-checked={checked}
       onClick={onChange}
-      className={`flex min-h-[4.5rem] w-full items-center justify-between gap-4 rounded-xl border bg-surface px-5 py-4 text-left transition-colors duration-150 outline-none select-none hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 focus-visible:ring-offset-canvas md:min-h-[5rem] md:px-6 ${
+      className={`flex min-h-[4.5rem] w-full items-center justify-between gap-4 rounded-xl border bg-surface px-5 py-4 text-start transition-colors duration-150 outline-none select-none hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 focus-visible:ring-offset-canvas md:min-h-[5rem] md:px-6 ${
         checked ? 'border-teal' : 'border-hairline'
       }`}
     >
@@ -139,7 +138,10 @@ function FeatureRow({ label, points, checked, onChange }) {
         </span>
       </span>
 
-      <span className="font-display shrink-0 text-base font-semibold text-muted tabular-nums md:text-lg">
+      <span
+        dir="ltr"
+        className="font-display shrink-0 text-base font-semibold text-muted tabular-nums md:text-lg"
+      >
         +{points}
       </span>
     </button>

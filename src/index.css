@@ -81,6 +81,62 @@
   padding-block: 0.1em;
 }
 
+/* ---------------------------------------------------------------------------
+   Urdu / RTL
+   `dir="rtl"` on <html> flips every logical property (ps-/pe-, ms-/me-,
+   text-start, border-s) automatically. These rules handle what logical
+   properties cannot: the script itself.
+   --------------------------------------------------------------------------- */
+
+[dir='rtl'] body {
+  font-family: var(--font-urdu);
+}
+
+/* Nastaliq is cursive and joined: letter-spacing pulls the glyphs apart and
+   destroys the connections, so tracking utilities are neutralised in Urdu. */
+[dir='rtl'] * {
+  letter-spacing: normal !important;
+}
+
+/* Nastaliq cascades steeply from top-right to bottom-left and needs far more
+   vertical room than Latin. The tight leadings used across the UI would clip
+   descenders, so they are relaxed for Urdu only. */
+[dir='rtl'] :is(.leading-none, .leading-tight, .leading-snug) {
+  line-height: 1.75;
+}
+
+[dir='rtl'] :is(.leading-relaxed, .leading-normal) {
+  line-height: 2;
+}
+
+/* Latin runs inside Urdu text — brand name, scores, codes, units — keep their
+   own face and metrics. */
+[dir='rtl'] :is(.font-display, .tabular-nums) {
+  font-family: var(--font-display);
+  line-height: normal;
+}
+
+/* Nastaliq carries far more detail per glyph than Latin and becomes
+   unreadable at the micro-label sizes used for uppercase eyebrow text, so the
+   smallest steps are raised for Urdu. Substring selectors avoid escaping the
+   arbitrary-value class names. */
+[dir='rtl'] [class*='text-[0.5625rem]'] {
+  font-size: 0.8125rem;
+}
+
+[dir='rtl'] [class*='text-[0.6875rem]'] {
+  font-size: 0.875rem;
+}
+
+[dir='rtl'] :is(.text-xs, .text-\[0\.6875rem\]) {
+  font-size: 0.875rem;
+}
+
+/* The back chevron points towards the start of the line; mirror it in RTL. */
+[dir='rtl'] .rtl-flip {
+  transform: scaleX(-1);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

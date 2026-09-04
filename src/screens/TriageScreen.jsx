@@ -1,12 +1,11 @@
 import { useState } from 'react'
 import Screen, { COLUMN } from '../components/Screen.jsx'
 import TopBar from '../components/TopBar.jsx'
+import { useI18n } from '../i18n/index.jsx'
 import BackLink from '../components/BackLink.jsx'
 
 export default function TriageScreen({
   questions,
-  lang,
-  onLangChange,
   onComplete,
   onExit,
 }) {
@@ -16,6 +15,7 @@ export default function TriageScreen({
   const [detected, setDetected] = useState({})
   const question = questions[index]
   const total = questions.length
+  const { t } = useI18n()
 
   function answer(isYes) {
     // Each sign declares which answer fires it — Q1 is inverted, so a
@@ -38,10 +38,10 @@ export default function TriageScreen({
 
   return (
     <Screen>
-      <TopBar lang={lang} onLangChange={onLangChange} />
+      <TopBar />
 
       <main className={`${COLUMN} flex flex-1 flex-col pt-6 md:pt-10`}>
-        <Progress current={index + 1} total={total} onBack={goBack} />
+        <Progress current={index + 1} total={total} onBack={goBack} t={t} />
 
         {/* Keyed so each question replays the entrance transition. */}
         <div
@@ -52,22 +52,26 @@ export default function TriageScreen({
             id="question-text"
             className="text-[1.75rem] leading-snug font-medium text-balance text-fg md:text-[2.5rem] md:leading-[1.25]"
           >
-            {question.text}
+            {t(`dangerSigns.${question.id}.text`)}
           </h1>
         </div>
       </main>
 
       <footer className={`${COLUMN} pt-8 pb-8 md:pt-10 md:pb-12`}>
         <div className="flex flex-col gap-3 md:gap-4">
-          <ChoiceButton onClick={() => answer(true)}>YES</ChoiceButton>
-          <ChoiceButton onClick={() => answer(false)}>NO</ChoiceButton>
+          <ChoiceButton onClick={() => answer(true)}>
+            {t('common.yesEmphatic')}
+          </ChoiceButton>
+          <ChoiceButton onClick={() => answer(false)}>
+            {t('common.noEmphatic')}
+          </ChoiceButton>
         </div>
       </footer>
     </Screen>
   )
 }
 
-function Progress({ current, total, onBack }) {
+function Progress({ current, total, onBack, t }) {
   const pct = (current / total) * 100
 
   return (
@@ -79,7 +83,7 @@ function Progress({ current, total, onBack }) {
           aria-live="polite"
           className="text-xs font-medium tracking-[0.16em] text-muted uppercase md:text-sm"
         >
-          Question {current} of {total}
+          {t('triage.progress', { current, total })}
         </p>
       </div>
 
@@ -89,7 +93,7 @@ function Progress({ current, total, onBack }) {
         aria-valuenow={current}
         aria-valuemin={1}
         aria-valuemax={total}
-        aria-label={`Question ${current} of ${total}`}
+        aria-label={t('triage.progress', { current, total })}
       >
         <div
           className="h-full bg-teal transition-[width] duration-300 ease-out"

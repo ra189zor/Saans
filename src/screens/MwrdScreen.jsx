@@ -1,5 +1,6 @@
 import Screen, { COLUMN } from '../components/Screen.jsx'
 import TopBar from '../components/TopBar.jsx'
+import { useI18n } from '../i18n/index.jsx'
 import BackLink from '../components/BackLink.jsx'
 
 /**
@@ -8,16 +9,17 @@ import BackLink from '../components/BackLink.jsx'
  * the contact question.
  */
 const OPTIONS = [
-  { id: 'detected', label: 'Yes — MTB detected', positive: true },
-  { id: 'notDetected', label: 'Yes — not detected' },
-  { id: 'pending', label: 'Result not yet available' },
-  { id: 'notPerformed', label: 'Not performed' },
+  { id: 'detected', positive: true },
+  { id: 'notDetected' },
+  { id: 'pending' },
+  { id: 'notPerformed' },
 ]
 
-export default function MwrdScreen({ lang, onLangChange, onAnswer, onBack }) {
+export default function MwrdScreen({ onAnswer, onBack }) {
+  const { t } = useI18n()
   return (
     <Screen fill>
-      <TopBar lang={lang} onLangChange={onLangChange} />
+      <TopBar />
 
       <main
         className={`${COLUMN} min-h-0 flex-1 overflow-y-auto pt-6 md:pt-10`}
@@ -25,7 +27,7 @@ export default function MwrdScreen({ lang, onLangChange, onAnswer, onBack }) {
         <BackLink onClick={onBack} />
 
         <h1 className="mt-6 text-[1.5rem] leading-snug font-medium text-balance text-fg md:text-[2.125rem] md:leading-[1.3]">
-          Was an mWRD (Xpert MTB/RIF or Ultra) or urine LF-LAM test performed?
+          {t('mwrd.question')}
         </h1>
       </main>
 
@@ -36,7 +38,7 @@ export default function MwrdScreen({ lang, onLangChange, onAnswer, onBack }) {
               key={option.id}
               onClick={() => onAnswer(Boolean(option.positive))}
             >
-              {option.label}
+              {t(`mwrd.${option.id}`)}
             </ChoiceButton>
           ))}
         </div>
@@ -50,7 +52,7 @@ function ChoiceButton({ children, onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className="flex min-h-[4.5rem] w-full items-center rounded-xl border border-hairline bg-surface px-6 py-4 text-left text-lg leading-snug font-semibold text-fg transition-colors duration-150 outline-none select-none hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 focus-visible:ring-offset-canvas active:bg-surface-hover md:min-h-[5rem] md:px-8 md:text-xl"
+      className="flex min-h-[4.5rem] w-full items-center rounded-xl border border-hairline bg-surface px-6 py-4 text-start text-lg leading-snug font-semibold text-fg transition-colors duration-150 outline-none select-none hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 focus-visible:ring-offset-canvas active:bg-surface-hover md:min-h-[5rem] md:px-8 md:text-xl"
     >
       {children}
     </button>

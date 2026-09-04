@@ -1,19 +1,10 @@
 import { useEffect, useState } from 'react'
 import Screen, { COLUMN } from '../components/Screen.jsx'
 import TopBar from '../components/TopBar.jsx'
-import {
-  SOURCE_NOTE,
-  CONTACT_RULE,
-  MWRD_RULE,
-  MWRD_NOTIFY,
-  DECISION_TREAT,
-  DECISION_NO_TREAT,
-  TREATMENT_THRESHOLD,
-} from '../data/scoring.js'
+import { useI18n } from '../i18n/index.jsx'
+import { TREATMENT_THRESHOLD } from '../data/scoring.js'
 
 export default function ResultsScreen({
-  lang,
-  onLangChange,
   score,
   mwrdPositive,
   contactPositive,
@@ -22,6 +13,7 @@ export default function ResultsScreen({
   heatmapOverlay,
   onRestart,
 }) {
+  const { t } = useI18n()
   const [assistantNote, setAssistantNote] = useState(false)
 
   /* A positive mWRD/LF-LAM result, or a close/household contact, goes straight
@@ -37,83 +29,84 @@ export default function ResultsScreen({
     ? []
     : score.items.filter((item) => item.group === 'cxr')
 
+  /** Scored items carry ids, not prose — compose the label in the active language. */
+  function itemLabel(item) {
+    if (item.group === 'cxr') return t(`cxrItems.${item.id}`)
+    const label = t(`symptomItems.${item.id}`)
+    return item.days == null
+      ? label
+      : t('results.itemWithDays', { label, count: item.days })
+  }
+
   return (
     <Screen fill>
-      <TopBar lang={lang} onLangChange={onLangChange} />
+      <TopBar />
 
       <main className={`${COLUMN} min-h-0 flex-1 overflow-y-auto py-6 md:py-10`}>
         {highRisk && (
           <p className="mb-6 inline-block rounded-md border border-amber px-4 py-2 text-[0.5625rem] font-medium tracking-[0.16em] text-amber uppercase md:text-[0.6875rem] md:tracking-[0.2em]">
-            High Risk · Fast Track
+            {t('results.highRiskBadge')}
           </p>
         )}
 
         {skipsScoring ? (
           <ResultCard
             tone="orange"
-            title="TB Treatment Indicated"
-            lines={
-              mwrdPositive
-                ? [
-                    MWRD_RULE,
-                    `${MWRD_NOTIFY} Mycobacterium tuberculosis detected by mWRD or LF-LAM; no symptom score is calculated.`,
-                    `Refer to nearest PHC with referral code ${referralCode}.`,
-                  ]
-                : [
-                    CONTACT_RULE,
-                    'Close or household TB contact in the previous 12 months. Contact history alone indicates treatment; no symptom score is calculated.',
-                    `Refer to nearest PHC with referral code ${referralCode}.`,
-                  ]
-            }
+            title={t('results.treatTitle')}
+            lines={[
+              t('results.immediateTreat'),
+              mwrdPositive ? t('results.mwrdReason') : t('results.contactReason'),
+              t('results.referral', { code: referralCode }),
+            ]}
           />
         ) : (
           <>
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <p className="text-[0.5625rem] font-medium tracking-[0.16em] text-faint uppercase md:text-[0.6875rem] md:tracking-[0.2em]">
-                  Risk Score
+                  {t('results.scoreLabel')}
                 </p>
                 <p className="mt-1 text-sm text-muted md:text-base">
-                  {usedXray
-                    ? 'Algorithm A (with chest X-ray)'
-                    : 'Algorithm B (without X-ray)'}
+                  {usedXray ? t('results.algorithmA') : t('results.algorithmB')}
                 </p>
               </div>
 
               {heatmapOverlay && (
                 <img
                   src={heatmapOverlay}
-                  alt="Chest X-ray heatmap"
+                  alt={t('results.heatmapAlt')}
                   className="h-16 w-16 shrink-0 rounded-lg border border-hairline object-cover md:h-20 md:w-20"
                 />
               )}
             </div>
 
-            <AnimatedScore value={score.total} />
+            <AnimatedScore value={score.total} label={t('results.scoreLabel')} />
 
             <section className="mt-8 border-t border-hairline pt-6 md:mt-10">
               <p className="text-[0.5625rem] font-medium tracking-[0.16em] text-faint uppercase md:text-[0.6875rem] md:tracking-[0.2em]">
-                Reasoning
+                {t('results.reasoning')}
               </p>
 
               {score.items.length === 0 ? (
                 <p className="mt-4 text-sm leading-relaxed text-muted md:text-base">
-                  No scoring findings recorded.
+                  {t('results.noFindings')}
                 </p>
               ) : (
                 <>
                   <ScoreGroup
-                    heading={usedXray ? 'Sum A · Signs and symptoms' : null}
+                    heading={usedXray ? t('results.sumAHeading') : null}
                     items={symptomItems}
                     total={usedXray ? score.symptomTotal : null}
-                    emptyNote="No symptom findings recorded."
+                    emptyNote={t('results.noSymptomFindings')}
+                    itemLabel={itemLabel}
                   />
                   {usedXray && (
                     <ScoreGroup
-                      heading="Sum B · Chest X-ray"
+                      heading={t('results.sumBHeading')}
                       items={cxrItems}
                       total={score.cxrTotal}
-                      emptyNote="No CXR features confirmed."
+                      emptyNote={t('results.noCxrFindings')}
+                      itemLabel={itemLabel}
                     />
                   )}
                 </>
@@ -121,10 +114,16 @@ export default function ResultsScreen({
 
               <p className="mt-6 border-t border-hairline pt-4 text-sm leading-relaxed text-muted md:text-base">
                 {usedXray
-                  ? `Sum A ${score.symptomTotal} + Sum B ${score.cxrTotal} = ${score.total}. `
-                  : `Total ${score.total}. `}
-                Treatment is indicated when the total is greater than{' '}
-                {TREATMENT_THRESHOLD}.
+                  ? t('results.thresholdWithXray', {
+                      sumA: score.symptomTotal,
+                      sumB: score.cxrTotal,
+                      total: score.total,
+                      threshold: TREATMENT_THRESHOLD,
+                    })
+                  : t('results.thresholdNoXray', {
+                      total: score.total,
+                      threshold: TREATMENT_THRESHOLD,
+                    })}
               </p>
             </section>
 
@@ -132,21 +131,19 @@ export default function ResultsScreen({
               {treat ? (
                 <ResultCard
                   tone="orange"
-                  title="TB Treatment Indicated"
+                  title={t('results.treatTitle')}
                   lines={[
-                    DECISION_TREAT,
-                    `Refer to nearest PHC with referral code ${referralCode}.`,
+                    t('results.decisionTreat'),
+                    t('results.referral', { code: referralCode }),
                   ]}
                 />
               ) : (
                 <ResultCard
                   tone="green"
-                  title="Treatment Not Indicated"
+                  title={t('results.noTreatTitle')}
                   lines={[
-                    DECISION_NO_TREAT,
-                    ...(highRisk
-                      ? ['High-risk child — keep a low threshold for re-evaluation.']
-                      : []),
+                    t('results.decisionNoTreat'),
+                    ...(highRisk ? [t('results.highRiskNote')] : []),
                   ]}
                 />
               )}
@@ -155,7 +152,7 @@ export default function ResultsScreen({
         )}
 
         <p className="mt-8 border-t border-hairline pt-5 text-xs leading-relaxed text-faint md:text-sm">
-          {SOURCE_NOTE}
+          {t('results.source')}
         </p>
 
         {assistantNote && (
@@ -163,7 +160,7 @@ export default function ResultsScreen({
             aria-live="polite"
             className="mt-4 text-sm leading-relaxed text-faint md:text-base"
           >
-            AI feature coming next
+            {t('common.aiComingSoon')}
           </p>
         )}
       </main>
@@ -176,7 +173,7 @@ export default function ResultsScreen({
           onClick={() => setAssistantNote(true)}
           className="flex min-h-[4rem] w-full items-center justify-center rounded-xl border border-hairline bg-surface px-8 text-base font-semibold text-fg transition-colors duration-150 outline-none select-none hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 focus-visible:ring-offset-canvas active:bg-surface-hover md:min-h-[4.5rem] md:text-lg"
         >
-          Ask WHO Assistant
+          {t('results.askAssistant')}
         </button>
 
         <button
@@ -184,52 +181,14 @@ export default function ResultsScreen({
           onClick={onRestart}
           className="flex min-h-[4.75rem] w-full items-center justify-center rounded-xl bg-teal px-8 text-xl font-bold tracking-tight text-white transition-colors duration-150 outline-none select-none hover:bg-teal-hover focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 focus-visible:ring-offset-canvas active:bg-teal-hover md:min-h-[5.5rem] md:text-2xl"
         >
-          Start New Screening
+          {t('common.startNewScreening')}
         </button>
       </footer>
     </Screen>
   )
 }
 
-/**
- * Counts up to the score on a timer rather than requestAnimationFrame, so it
- * still resolves on displays that are not compositing. Reduced motion jumps
- * straight to the final value.
- */
-function AnimatedScore({ value }) {
-  const [shown, setShown] = useState(() =>
-    prefersReducedMotion() || value <= 0 ? value : 0
-  )
-
-  useEffect(() => {
-    if (prefersReducedMotion() || value <= 0) {
-      setShown(value)
-      return
-    }
-
-    setShown(0)
-    let current = 0
-    const stepMs = Math.max(24, Math.round(650 / value))
-    const timer = setInterval(() => {
-      current += 1
-      setShown(current)
-      if (current >= value) clearInterval(timer)
-    }, stepMs)
-
-    return () => clearInterval(timer)
-  }, [value])
-
-  return (
-    <p
-      aria-label={`Risk score ${value}`}
-      className="font-display mt-2 text-[4.5rem] leading-none font-semibold tracking-[-0.03em] text-fg tabular-nums md:text-[6rem]"
-    >
-      {shown}
-    </p>
-  )
-}
-
-function ScoreGroup({ heading, items, total, emptyNote }) {
+function ScoreGroup({ heading, items, total, emptyNote, itemLabel }) {
   return (
     <div className={heading ? 'mt-5 first:mt-4' : 'mt-4'}>
       {heading && (
@@ -254,9 +213,12 @@ function ScoreGroup({ heading, items, total, emptyNote }) {
           {items.map((item) => (
             <li key={item.id} className="flex items-baseline justify-between gap-4">
               <span className="text-base leading-snug text-fg md:text-lg">
-                {item.label}
+                {itemLabel(item)}
               </span>
-              <span className="font-display shrink-0 text-base font-semibold text-muted tabular-nums md:text-lg">
+              <span
+                dir="ltr"
+                className="font-display shrink-0 text-base font-semibold text-muted tabular-nums md:text-lg"
+              >
                 {item.points > 0 ? `+${item.points}` : item.points}
               </span>
             </li>
@@ -264,6 +226,45 @@ function ScoreGroup({ heading, items, total, emptyNote }) {
         </ul>
       )}
     </div>
+  )
+}
+
+/**
+ * Counts up to the score on a timer rather than requestAnimationFrame, so it
+ * still resolves on displays that are not compositing. Reduced motion jumps
+ * straight to the final value.
+ */
+function AnimatedScore({ value, label }) {
+  const [shown, setShown] = useState(() =>
+    prefersReducedMotion() || value <= 0 ? value : 0
+  )
+
+  useEffect(() => {
+    if (prefersReducedMotion() || value <= 0) {
+      setShown(value)
+      return
+    }
+
+    setShown(0)
+    let current = 0
+    const stepMs = Math.max(24, Math.round(650 / value))
+    const timer = setInterval(() => {
+      current += 1
+      setShown(current)
+      if (current >= value) clearInterval(timer)
+    }, stepMs)
+
+    return () => clearInterval(timer)
+  }, [value])
+
+  return (
+    <p
+      dir="ltr"
+      aria-label={`${label}: ${value}`}
+      className="font-display mt-2 text-[4.5rem] leading-none font-semibold tracking-[-0.03em] text-fg tabular-nums md:text-[6rem] rtl:text-end"
+    >
+      {shown}
+    </p>
   )
 }
 

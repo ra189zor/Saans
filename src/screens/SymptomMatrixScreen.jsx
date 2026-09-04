@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import Screen, { COLUMN } from '../components/Screen.jsx'
 import TopBar from '../components/TopBar.jsx'
+import { useI18n } from '../i18n/index.jsx'
 import {
   MAX_DURATION_DAYS,
   DURATION_THRESHOLD_DAYS,
@@ -11,15 +12,12 @@ import { vitalThresholds, isTachypnoeic, isTachycardic } from '../data/vitals.js
 
 /* Cough and fever come from the sliders and the two vital-sign items from
    measured rates; these five are asked directly. */
-const TOGGLES = [
-  {
-    id: 'lethargy',
-    label: 'Persistent unexplained lethargy or reduced playfulness?',
-  },
-  { id: 'weightLoss', label: 'Weight loss or failure to thrive?' },
-  { id: 'haemoptysis', label: 'Haemoptysis (coughing up blood)?' },
-  { id: 'nightSweats', label: 'Night sweats?' },
-  { id: 'lymphNodes', label: 'Painless, enlarged (swollen) lymph nodes?' },
+const TOGGLE_IDS = [
+  'lethargy',
+  'weightLoss',
+  'haemoptysis',
+  'nightSweats',
+  'lymphNodes',
 ]
 
 /** Blank answer set; held by App so it survives the X-ray excursion. */
@@ -38,8 +36,6 @@ export const EMPTY_SYMPTOMS = {
 }
 
 export default function SymptomMatrixScreen({
-  lang,
-  onLangChange,
   ageYears,
   symptoms,
   onChange,
@@ -47,6 +43,7 @@ export default function SymptomMatrixScreen({
   onScanXray,
 }) {
   const [aiNote, setAiNote] = useState(false)
+  const { t } = useI18n()
 
   const {
     coughDays,
@@ -89,13 +86,14 @@ export default function SymptomMatrixScreen({
 
   return (
     <Screen fill>
-      <TopBar lang={lang} onLangChange={onLangChange} />
+      <TopBar />
 
       <main className={`${COLUMN} min-h-0 flex-1 overflow-y-auto py-6 md:py-10`}>
         <DurationSlider
           id="cough-days"
-          label="Cough duration"
-          qualifies="Counts as cough longer than 2 weeks"
+          label={t('symptoms.coughDuration')}
+          qualifies={t('symptoms.coughQualifies')}
+          t={t}
           value={coughDays}
           onChange={(days) => onChange({ coughDays: days })}
         />
@@ -103,54 +101,57 @@ export default function SymptomMatrixScreen({
         <div className="mt-8 md:mt-10">
           <DurationSlider
             id="fever-days"
-            label="Fever duration"
-            qualifies="Counts as fever longer than 2 weeks"
+            label={t('symptoms.feverDuration')}
+            qualifies={t('symptoms.feverQualifies')}
+            t={t}
             value={feverDays}
             onChange={(days) => onChange({ feverDays: days })}
           />
         </div>
 
         <div className="mt-9 flex flex-col gap-3 md:mt-11 md:gap-4">
-          {TOGGLES.map((toggle) => (
+          {TOGGLE_IDS.map((id) => (
             <ToggleRow
-              key={toggle.id}
-              label={toggle.label}
-              checked={flags[toggle.id]}
-              onChange={() => setFlag(toggle.id, !flags[toggle.id])}
+              key={id}
+              label={t(`symptoms.toggles.${id}`)}
+              checked={flags[id]}
+              onChange={() => setFlag(id, !flags[id])}
             />
           ))}
         </div>
 
         <section className="mt-9 md:mt-11">
           <p className="text-[0.5625rem] font-medium tracking-[0.16em] text-faint uppercase md:text-[0.6875rem] md:tracking-[0.2em]">
-            Vital Signs · {thresholds.label}
+            {t('symptoms.vitalsHeading')} · {t(thresholds.labelKey)}
           </p>
 
           <div className="mt-4 flex flex-col gap-3 md:gap-4">
             <RateField
               id="respiratory-rate"
-              label="Respiratory rate"
-              unit="breaths/min"
-              hint={`Tachypnoea above ${thresholds.respiratory}/min at this age`}
+              label={t('symptoms.respiratoryRate')}
+              unit={t('symptoms.respiratoryUnit')}
+              hint={t('symptoms.respiratoryHint', {
+                threshold: thresholds.respiratory,
+              })}
               value={respiratoryRate}
               onChange={onRespiratoryRate}
             />
             <ToggleRow
-              label="Tachypnoea?"
+              label={t('symptoms.tachypnoea')}
               checked={flags.tachypnoea}
               onChange={() => setFlag('tachypnoea', !flags.tachypnoea)}
             />
 
             <RateField
               id="heart-rate"
-              label="Heart rate"
-              unit="beats/min"
-              hint={`Tachycardia above ${thresholds.heart}/min at this age`}
+              label={t('symptoms.heartRate')}
+              unit={t('symptoms.heartUnit')}
+              hint={t('symptoms.heartHint', { threshold: thresholds.heart })}
               value={heartRate}
               onChange={onHeartRate}
             />
             <ToggleRow
-              label="Tachycardia?"
+              label={t('symptoms.tachycardia')}
               checked={flags.tachycardia}
               onChange={() => setFlag('tachycardia', !flags.tachycardia)}
             />
@@ -159,9 +160,11 @@ export default function SymptomMatrixScreen({
 
         <div className="mt-9 md:mt-11">
           <div className="grid grid-cols-2 gap-3 md:gap-4">
-            <SecondaryButton onClick={onScanXray}>Scan X-ray</SecondaryButton>
+            <SecondaryButton onClick={onScanXray}>
+              {t('symptoms.scanXray')}
+            </SecondaryButton>
             <SecondaryButton onClick={() => setAiNote(true)}>
-              Record Cough
+              {t('symptoms.recordCough')}
             </SecondaryButton>
           </div>
           {aiNote && (
@@ -169,7 +172,7 @@ export default function SymptomMatrixScreen({
               aria-live="polite"
               className="mt-3 text-sm leading-relaxed text-faint md:text-base"
             >
-              AI feature coming next
+              {t('common.aiComingSoon')}
             </p>
           )}
         </div>
@@ -181,14 +184,14 @@ export default function SymptomMatrixScreen({
           onClick={submit}
           className="flex min-h-[4.75rem] w-full items-center justify-center rounded-xl bg-teal px-8 text-xl font-bold tracking-tight text-white transition-colors duration-150 outline-none select-none hover:bg-teal-hover focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 focus-visible:ring-offset-canvas active:bg-teal-hover md:min-h-[5.5rem] md:text-2xl"
         >
-          Calculate Risk Score
+          {t('symptoms.calculate')}
         </button>
       </footer>
     </Screen>
   )
 }
 
-function DurationSlider({ id, label, qualifies, value, onChange }) {
+function DurationSlider({ id, label, qualifies, value, onChange, t }) {
   const counts = value >= DURATION_THRESHOLD_DAYS
 
   return (
@@ -204,7 +207,7 @@ function DurationSlider({ id, label, qualifies, value, onChange }) {
           htmlFor={id}
           className="font-display shrink-0 text-xl font-semibold text-teal tabular-nums md:text-2xl"
         >
-          {value} {value === 1 ? 'day' : 'days'}
+          {value === 1 ? t('common.daysOne') : t('common.days', { count: value })}
         </output>
       </div>
 
@@ -221,7 +224,7 @@ function DurationSlider({ id, label, qualifies, value, onChange }) {
 
       <div className="mt-1 flex justify-between text-[0.6875rem] text-faint">
         <span>0</span>
-        <span>{MAX_DURATION_DAYS} days</span>
+        <span>{t('symptoms.maxDays', { days: MAX_DURATION_DAYS })}</span>
       </div>
 
       <p
@@ -229,7 +232,7 @@ function DurationSlider({ id, label, qualifies, value, onChange }) {
       >
         {counts
           ? qualifies
-          : `Scores at ${DURATION_THRESHOLD_DAYS} days or more`}
+          : t('symptoms.scoresAt', { days: DURATION_THRESHOLD_DAYS })}
       </p>
     </div>
   )
@@ -250,6 +253,7 @@ function RateField({ id, label, unit, hint, value, onChange }) {
           <input
             id={id}
             type="text"
+            dir="ltr"
             inputMode="numeric"
             autoComplete="off"
             placeholder="––"
@@ -274,7 +278,7 @@ function ToggleRow({ label, checked, onChange }) {
       role="switch"
       aria-checked={checked}
       onClick={onChange}
-      className="flex min-h-[4.5rem] w-full items-center justify-between gap-5 rounded-xl border border-hairline bg-surface px-5 py-4 text-left transition-colors duration-150 outline-none select-none hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 focus-visible:ring-offset-canvas md:min-h-[5rem] md:px-6"
+      className="flex min-h-[4.5rem] w-full items-center justify-between gap-5 rounded-xl border border-hairline bg-surface px-5 py-4 text-start transition-colors duration-150 outline-none select-none hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 focus-visible:ring-offset-canvas md:min-h-[5rem] md:px-6"
     >
       <span className="text-base leading-snug font-medium text-fg md:text-lg">
         {label}
@@ -288,7 +292,9 @@ function ToggleRow({ label, checked, onChange }) {
       >
         <span
           className={`h-7 w-7 rounded-full bg-fg transition-transform duration-150 md:h-8 md:w-8 ${
-            checked ? 'translate-x-7 md:translate-x-8' : 'translate-x-0'
+            checked
+              ? 'translate-x-7 rtl:-translate-x-7 md:translate-x-8 md:rtl:-translate-x-8'
+              : 'translate-x-0'
           }`}
         />
       </span>

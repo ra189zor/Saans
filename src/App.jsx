@@ -32,11 +32,6 @@ export default function App() {
   const [referralCode, setReferralCode] = useState(null)
   const [symptoms, setSymptoms] = useState(EMPTY_SYMPTOMS)
   const [xray, setXray] = useState(null)
-  // Visual language state only — content is not translated yet.
-  const [lang, setLang] = useState('en')
-
-  const shared = { lang, onLangChange: setLang }
-
   function startNewScreening() {
     setDetectedSigns([])
     setFastTrack(false)
@@ -56,7 +51,6 @@ export default function App() {
     case 'visitType':
       return (
         <VisitTypeScreen
-          {...shared}
           onAnswer={(type) => {
             setVisitType(type)
             setScreen('age')
@@ -68,7 +62,6 @@ export default function App() {
     case 'age':
       return (
         <AgeGateScreen
-          {...shared}
           onSubmit={(years) => {
             setAgeYears(years)
             setScreen(years < MAX_AGE_YEARS ? 'triage' : 'outOfScope')
@@ -78,12 +71,11 @@ export default function App() {
       )
 
     case 'outOfScope':
-      return <OutOfScopeScreen {...shared} onBack={() => setScreen('age')} />
+      return <OutOfScopeScreen onBack={() => setScreen('age')} />
 
     case 'triage':
       return (
         <TriageScreen
-          {...shared}
           /* Remount on entry so a restarted triage begins at question 1. */
           key="triage"
           questions={DANGER_SIGNS}
@@ -102,7 +94,6 @@ export default function App() {
     case 'breathing':
       return (
         <BreathingScreen
-          {...shared}
           onSevere={() => setScreen('urgent')}
           onNoSevere={() => {
             setFastTrack(true)
@@ -114,7 +105,6 @@ export default function App() {
     case 'urgent':
       return (
         <UrgentScreen
-          {...shared}
           signs={detectedSigns}
           onRestart={startNewScreening}
         />
@@ -123,7 +113,6 @@ export default function App() {
     case 'risk':
       return (
         <RiskProfileScreen
-          {...shared}
           ageYears={ageYears}
           fastTrack={fastTrack}
           onContinue={(isHighRisk) => {
@@ -140,13 +129,12 @@ export default function App() {
 
     case 'lowerRisk':
       return (
-        <LowerRiskScreen {...shared} onScheduleFollowUp={startNewScreening} />
+        <LowerRiskScreen onScheduleFollowUp={startNewScreening} />
       )
 
     case 'mwrd':
       return (
         <MwrdScreen
-          {...shared}
           onAnswer={(detected) => {
             setMwrdPositive(detected)
             if (detected) {
@@ -165,7 +153,6 @@ export default function App() {
     case 'contact':
       return (
         <ContactScreen
-          {...shared}
           onAnswer={(hasContact) => {
             setContactPositive(hasContact)
             if (hasContact) {
@@ -184,7 +171,6 @@ export default function App() {
     case 'symptoms':
       return (
         <SymptomMatrixScreen
-          {...shared}
           ageYears={ageYears}
           symptoms={symptoms}
           onChange={(patch) => setSymptoms((prev) => ({ ...prev, ...patch }))}
@@ -200,7 +186,6 @@ export default function App() {
     case 'xrayScan':
       return (
         <XrayScanScreen
-          {...shared}
           onAnalyzed={({ analysis, capturedDataUrl }) => {
             setXray({ analysis, capturedDataUrl })
             setScreen('xrayFeatures')
@@ -212,7 +197,6 @@ export default function App() {
     case 'xrayFeatures':
       return (
         <XrayFeaturesScreen
-          {...shared}
           analysis={xray?.analysis}
           onConfirm={(confirmedCxr) => {
             /* An X-ray was read, so Algorithm A applies: the symptom items are
@@ -231,7 +215,6 @@ export default function App() {
     case 'results':
       return (
         <ResultsScreen
-          {...shared}
           score={score}
           mwrdPositive={mwrdPositive}
           contactPositive={contactPositive}
@@ -243,6 +226,6 @@ export default function App() {
       )
 
     default:
-      return <WelcomeScreen {...shared} onStart={() => setScreen('visitType')} />
+      return <WelcomeScreen onStart={() => setScreen('visitType')} />
   }
 }

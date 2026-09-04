@@ -2,8 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import Screen, { COLUMN } from '../components/Screen.jsx'
 import TopBar from '../components/TopBar.jsx'
 import BackLink from '../components/BackLink.jsx'
-
-const GUIDANCE = 'Hold the chest X-ray film against a bright light or white screen.'
+import { useI18n } from '../i18n/index.jsx'
 
 /**
  * Camera capture with an upload fallback. Many field devices have no usable
@@ -11,8 +10,6 @@ const GUIDANCE = 'Hold the chest X-ray film against a bright light or white scre
  * rather than being a hidden last resort.
  */
 export default function XrayScanScreen({
-  lang,
-  onLangChange,
   onAnalyzed,
   onBack,
 }) {
@@ -24,6 +21,7 @@ export default function XrayScanScreen({
   const [capture, setCapture] = useState(null) // { dataUrl, blob }
   const [status, setStatus] = useState('idle') // idle | analyzing | error
   const [error, setError] = useState(null)
+  const { t } = useI18n()
 
   useEffect(() => {
     let cancelled = false
@@ -116,13 +114,13 @@ export default function XrayScanScreen({
 
   return (
     <Screen fill>
-      <TopBar lang={lang} onLangChange={onLangChange} />
+      <TopBar />
 
       <main className={`${COLUMN} min-h-0 flex-1 overflow-y-auto py-6 md:py-10`}>
         <BackLink onClick={onBack} />
 
         <h1 className="mt-6 text-[1.5rem] leading-snug font-medium text-balance text-fg md:text-[2rem] md:leading-[1.3]">
-          Scan chest X-ray
+          {t('xrayScan.title')}
         </h1>
 
         <div className="mt-6 overflow-hidden rounded-xl border border-hairline bg-surface">
@@ -130,7 +128,7 @@ export default function XrayScanScreen({
             {capture ? (
               <img
                 src={capture.dataUrl}
-                alt="Captured chest X-ray"
+alt={t('xrayScan.capturedAlt')}
                 className="h-full w-full object-contain"
               />
             ) : (
@@ -151,8 +149,8 @@ export default function XrayScanScreen({
                   <div className="absolute inset-0 flex items-center justify-center px-6 text-center">
                     <p className="text-sm leading-relaxed text-muted md:text-base">
                       {cameraState === 'starting'
-                        ? 'Starting camera…'
-                        : 'Camera unavailable on this device. Use “Upload image” below.'}
+                        ? t('xrayScan.startingCamera')
+                        : t('xrayScan.cameraUnavailable')}
                     </p>
                   </div>
                 )}
@@ -161,7 +159,7 @@ export default function XrayScanScreen({
           </div>
 
           <p className="border-t border-hairline px-5 py-4 text-sm leading-relaxed text-muted md:text-base">
-            {GUIDANCE}
+            {t('xrayScan.guidance')}
           </p>
         </div>
 
@@ -170,7 +168,7 @@ export default function XrayScanScreen({
             aria-live="polite"
             className="mt-4 rounded-xl border border-danger px-4 py-3 text-sm leading-relaxed text-fg md:text-base"
           >
-            Analysis failed: {error}. Check that the vision service is running.
+            {t('xrayScan.failed', { error })}
           </p>
         )}
 
@@ -180,7 +178,7 @@ export default function XrayScanScreen({
           accept="image/*"
           onChange={onFilePicked}
           className="sr-only"
-          aria-label="Upload chest X-ray image"
+aria-label={t('xrayScan.uploadAria')}
         />
       </main>
 
@@ -188,7 +186,9 @@ export default function XrayScanScreen({
         {capture ? (
           <>
             <PrimaryButton onClick={analyze} disabled={status === 'analyzing'}>
-              {status === 'analyzing' ? 'Analyzing…' : 'Analyze X-ray'}
+              {status === 'analyzing'
+                ? t('xrayScan.analyzing')
+                : t('xrayScan.analyze')}
             </PrimaryButton>
             <SecondaryButton
               onClick={() => {
@@ -196,16 +196,16 @@ export default function XrayScanScreen({
                 setStatus('idle')
               }}
             >
-              Retake
+              {t('xrayScan.retake')}
             </SecondaryButton>
           </>
         ) : (
           <>
             <PrimaryButton onClick={captureFrame} disabled={cameraState !== 'live'}>
-              Capture
+              {t('xrayScan.capture')}
             </PrimaryButton>
             <SecondaryButton onClick={() => fileInputRef.current?.click()}>
-              Upload image
+              {t('xrayScan.upload')}
             </SecondaryButton>
           </>
         )}

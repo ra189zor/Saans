@@ -10,9 +10,9 @@
  */
 
 const BANDS = [
-  { maxYearsExclusive: 1, respiratory: 50, heart: 150, label: '2–12 months' },
-  { maxYearsExclusive: 5, respiratory: 40, heart: 140, label: '1–5 years' },
-  { maxYearsExclusive: Infinity, respiratory: 30, heart: 120, label: 'over 5 years' },
+  { maxYearsExclusive: 1, respiratory: 50, heart: 150, labelKey: 'vitalBands.infant' },
+  { maxYearsExclusive: 5, respiratory: 40, heart: 140, labelKey: 'vitalBands.child' },
+  { maxYearsExclusive: Infinity, respiratory: 30, heart: 120, labelKey: 'vitalBands.older' },
 ]
 
 export function vitalThresholds(ageYears) {

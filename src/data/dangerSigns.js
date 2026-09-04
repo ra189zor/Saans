@@ -4,83 +4,24 @@
  * `triggerOn` is the answer that fires the sign — note Q1 is inverted:
  * a child who CANNOT drink or breastfeed is the emergency.
  *
- * All six are always asked; `outcome` classifies the collected set afterwards:
+ * All are always asked; `outcome` classifies the collected set afterwards:
  *   'urgent'    → red emergency screen
  *   'breathing' → amber severity check, which may still de-escalate
  *
- * `label` is the short form used in the detected-signs summary.
+ * Question text and the short summary label live in `src/i18n` under
+ * `dangerSigns.<id>.text` / `dangerSigns.<id>.label`.
  */
 export const DANGER_SIGNS = [
-  {
-    id: 'drink',
-    label: 'cannot drink or breastfeed',
-    text: 'Can the child drink or breastfeed?',
-    triggerOn: 'no',
-    outcome: 'urgent',
-  },
-  {
-    id: 'vomit',
-    label: 'vomits everything',
-    text: 'Does the child vomit everything they eat or drink?',
-    triggerOn: 'yes',
-    outcome: 'urgent',
-  },
-  {
-    id: 'seizure',
-    label: 'seizure',
-    text: 'Has the child had a seizure or fit?',
-    triggerOn: 'yes',
-    outcome: 'urgent',
-  },
-  {
-    id: 'consciousness',
-    label: 'very sleepy or unconscious',
-    text: 'Is the child very sleepy, difficult to wake, or unconscious?',
-    triggerOn: 'yes',
-    outcome: 'urgent',
-  },
-  {
-    id: 'indrawing',
-    label: 'chest indrawing',
-    text: 'Does the child’s chest pull in deeply when breathing?',
-    triggerOn: 'yes',
-    outcome: 'breathing',
-  },
-  {
-    id: 'stridor',
-    label: 'stridor while calm',
-    text: 'Does the child make a loud, harsh noise while breathing calmly?',
-    triggerOn: 'yes',
-    outcome: 'urgent',
-  },
-  {
-    id: 'dehydration',
-    label: 'severe dehydration',
-    text: 'Signs of severe dehydration (sunken eyes, skin pinch returns very slowly)?',
-    triggerOn: 'yes',
-    outcome: 'urgent',
-  },
-  {
-    id: 'pallor',
-    label: 'severe palmar pallor',
-    text: 'Severe palmar pallor?',
-    triggerOn: 'yes',
-    outcome: 'urgent',
-  },
-  {
-    id: 'hypoxia',
-    label: 'oxygen saturation below 90%',
-    text: 'Oxygen saturation below 90% (if pulse oximeter available)?',
-    triggerOn: 'yes',
-    outcome: 'urgent',
-  },
-  {
-    id: 'neckStiffness',
-    label: 'neck stiffness or bulging fontanelle',
-    text: 'Neck stiffness or bulging fontanelle?',
-    triggerOn: 'yes',
-    outcome: 'urgent',
-  },
+  { id: 'drink', triggerOn: 'no', outcome: 'urgent' },
+  { id: 'vomit', triggerOn: 'yes', outcome: 'urgent' },
+  { id: 'seizure', triggerOn: 'yes', outcome: 'urgent' },
+  { id: 'consciousness', triggerOn: 'yes', outcome: 'urgent' },
+  { id: 'indrawing', triggerOn: 'yes', outcome: 'breathing' },
+  { id: 'stridor', triggerOn: 'yes', outcome: 'urgent' },
+  { id: 'dehydration', triggerOn: 'yes', outcome: 'urgent' },
+  { id: 'pallor', triggerOn: 'yes', outcome: 'urgent' },
+  { id: 'hypoxia', triggerOn: 'yes', outcome: 'urgent' },
+  { id: 'neckStiffness', triggerOn: 'yes', outcome: 'urgent' },
 ]
 
 /** Screening is validated for children below this age, in completed years. */

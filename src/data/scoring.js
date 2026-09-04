@@ -12,9 +12,6 @@
  * entirely and goes straight to treatment — see CONTACT_RULE below.
  */
 
-export const SOURCE_NOTE =
-  'Scores per WHO Operational Handbook on Tuberculosis, Module 5 (2022), Annex 5.'
-
 /** Treat when total > this value. 10 exactly does NOT treat. */
 export const TREATMENT_THRESHOLD = 10
 
@@ -28,44 +25,27 @@ export const TREATMENT_THRESHOLD = 10
 export const DURATION_THRESHOLD_DAYS = 14
 export const MAX_DURATION_DAYS = 30
 
-export const CONTACT_RULE = 'Initiate appropriate TB treatment immediately.'
-
-export const MWRD_RULE = 'Initiate appropriate TB treatment immediately.'
-export const MWRD_NOTIFY = 'Register and notify to the NTP.'
-
-export const DECISION_TREAT = 'Initiate appropriate TB treatment.'
-export const DECISION_NO_TREAT =
-  'Do not treat with TB treatment. Follow-up in 1–2 weeks.'
-
-export const LOWER_RISK_GUIDANCE =
-  'Treat most likely non-TB condition(s). Follow-up in 1–2 weeks. Continue screening only if symptoms persist or worsen.'
-
 /** The nine scored symptom items, in published order. */
 export const SYMPTOM_ITEMS = [
-  { id: 'cough', label: 'Cough longer than 2 weeks', a: 2, b: 5 },
-  { id: 'fever', label: 'Fever longer than 2 weeks', a: 5, b: 10 },
-  { id: 'lethargy', label: 'Lethargy', a: 3, b: 4 },
-  { id: 'weightLoss', label: 'Weight loss / failure to thrive', a: 3, b: 5 },
-  { id: 'haemoptysis', label: 'Haemoptysis', a: 4, b: 9 },
-  { id: 'nightSweats', label: 'Night sweats', a: 2, b: 6 },
-  {
-    id: 'lymphNodes',
-    label: 'Swollen lymph nodes (cervical, submandibular or axillary)',
-    a: 4,
-    b: 7,
-  },
-  { id: 'tachycardia', label: 'Tachycardia', a: 2, b: 4 },
+  { id: 'cough', a: 2, b: 5 },
+  { id: 'fever', a: 5, b: 10 },
+  { id: 'lethargy', a: 3, b: 4 },
+  { id: 'weightLoss', a: 3, b: 5 },
+  { id: 'haemoptysis', a: 4, b: 9 },
+  { id: 'nightSweats', a: 2, b: 6 },
+  { id: 'lymphNodes', a: 4, b: 7 },
+  { id: 'tachycardia', a: 2, b: 4 },
   /* Tachypnoea is the one negative weight in Algorithm A. */
-  { id: 'tachypnoea', label: 'Tachypnoea', a: -1, b: 2 },
+  { id: 'tachypnoea', a: -1, b: 2 },
 ]
 
 /** Chest X-ray features — Algorithm A only (Sum B). */
 export const CXR_ITEMS = [
-  { id: 'cavity', label: 'Cavity', points: 6 },
-  { id: 'enlargedLymphNodes', label: 'Enlarged lymph nodes', points: 17 },
-  { id: 'opacities', label: 'Opacities', points: 5 },
-  { id: 'miliary', label: 'Miliary pattern', points: 15 },
-  { id: 'effusion', label: 'Effusion', points: 8 },
+  { id: 'cavity', points: 6 },
+  { id: 'enlargedLymphNodes', points: 17 },
+  { id: 'opacities', points: 5 },
+  { id: 'miliary', points: 15 },
+  { id: 'effusion', points: 8 },
 ]
 
 /** Aliases the vision service may return for a CXR feature. */
@@ -87,9 +67,7 @@ const CXR_ALIASES = {
 export function cxrIdFromLabel(value) {
   const key = String(value ?? '').trim().toLowerCase()
   if (CXR_ALIASES[key]) return CXR_ALIASES[key]
-  const match = CXR_ITEMS.find(
-    (item) => item.id.toLowerCase() === key || item.label.toLowerCase() === key
-  )
+  const match = CXR_ITEMS.find((item) => item.id.toLowerCase() === key)
   return match ? match.id : null
 }
 
@@ -123,26 +101,22 @@ export function scoreFindings(findings = {}, { algorithm = 'B', cxr = null } = {
   for (const item of SYMPTOM_ITEMS) {
     if (!findings[item.id]) continue
     const points = useA ? item.a : item.b
-    let label = item.label
-    if (item.id === 'cough' && findings.coughDays != null) {
-      label = `${item.label} (${findings.coughDays} days)`
-    }
-    if (item.id === 'fever' && findings.feverDays != null) {
-      label = `${item.label} (${findings.feverDays} days)`
-    }
-    items.push({ id: item.id, label, points, group: 'symptom' })
+    /* `days` lets the UI render "Cough longer than 2 weeks (21 days)" in the
+       active language; the scorer itself stays language-free. */
+    const days =
+      item.id === 'cough'
+        ? findings.coughDays
+        : item.id === 'fever'
+          ? findings.feverDays
+          : null
+    items.push({ id: item.id, points, group: 'symptom', days })
   }
 
   const cxrItems = []
   if (useA && cxr) {
     for (const item of CXR_ITEMS) {
       if (!cxr[item.id]) continue
-      cxrItems.push({
-        id: item.id,
-        label: item.label,
-        points: item.points,
-        group: 'cxr',
-      })
+      cxrItems.push({ id: item.id, points: item.points, group: 'cxr' })
     }
   }
 
