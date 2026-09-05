@@ -46,6 +46,53 @@ The model outputs a single probability and a Grad-CAM heatmap showing which regi
 
 Training code: [notebooks/train_xray_model_local.ipynb](notebooks/train_xray_model_local.ipynb). Metrics and per-source breakdown: [backend/models/saans_xray_densenet121.json](backend/models/saans_xray_densenet121.json).
 
+## The cough recording
+
+The symptom screen has a **Record Cough** button. It captures ten seconds with a
+visible countdown, resamples to 16 kHz mono in the browser, and posts a WAV to
+`/api/audio/cough`. The result is shown as a hint and nothing more — it is never
+passed to the scorer.
+
+That restraint is not caution for its own sake. WHO's cough criterion is
+duration: "unremitting symptoms lasting more than 2 weeks" (handbook p95). A ten
+second recording cannot measure two weeks, so the sound of a cough is not the
+thing the algorithm scores. The slider is.
+
+Two components, and they are not equally strong:
+
+**Is there a cough** — a RandomForest over 66 features (20 MFCCs with their
+standard deviations and deltas, zero-crossing rate, spectral centroid, rolloff,
+low-band energy ratio, burst count and duration). Trained on COUGHVID v3.
+
+**Is it wet or dry** — acoustic thresholds, reported with `calibrated: false`.
+Not a trained model, because COUGHVID has only 15 expert-labelled recordings
+from children under five.
+
+### The age question, measured rather than assumed
+
+Saans screens under-fives; COUGHVID's median age is 35. Rather than train on a
+mixture and hope, every recording from anyone under 18 was **held out of
+training entirely**, and the adult-trained model was then scored by age group:
+
+| group | n | accuracy | recall | AUC |
+| --- | --- | --- | --- | --- |
+| Adults (held out) | 1,157 | 0.935 | 0.961 | 0.982 |
+| Children under 18 | 960 | 0.935 | 0.950 | 0.972 |
+| Children under 12 | 175 | 0.897 | 0.905 | 0.953 |
+| **Children under 5** | **59** | **0.881** | **0.882** | **0.951** |
+
+Adult training transfers, at a cost of about 0.03 AUC. Treat the under-five row
+as "around 0.95": 59 recordings is the entire public supply for that age band,
+and the confidence interval on it is wide.
+
+Two safeguards follow from this. The energy-based burst detector runs alongside
+the model and **either** can call a cough, so an adult-trained classifier cannot
+veto a small child's cough on its own. And the screen tells the health worker
+what produced the hint, in English and Urdu.
+
+Retrain with `python notebooks/train_cough_model.py`. Feature extraction is
+shared with `server/audio.py`, so training and serving cannot drift apart.
+
 ## Running it
 
 ### Frontend
@@ -101,9 +148,10 @@ src/
   i18n/           English and Urdu dictionaries
 server/
   app.py          FastAPI endpoints
-  vision.py       model loading, Grad-CAM, heatmap rendering
+  vision.py       X-ray model loading, Grad-CAM, heatmap rendering
+  audio.py        cough features, burst detection, trained cough detector
 backend/models/   weights and metrics
-notebooks/        training notebook
+notebooks/        training notebook (X-ray) and training script (cough)
 books/            the WHO handbook this implements
 ```
 
@@ -116,6 +164,11 @@ These are real and are stated here rather than buried.
 **WHO does not endorse automated X-ray reading in this age group.** The recommendation on computer-aided detection is "currently limited to people aged 15 years and older" (handbook p41), and the handbook notes that data in children "remain limited, and further research is needed to make recommendations" (p90).
 
 **The X-ray is never the decision.** The handbook is explicit: "A CXR alone cannot be used to determine the correct treatment for the child" (p90), and CXRs "should be read by someone trained in paediatric CXR interpretation". The model suggests, the health worker confirms, and only confirmed findings are scored. Remove the model entirely and the app still works through Algorithm B, which is designed for clinics without an X-ray at all.
+
+**The cough detector is trained on adults.** No public cough dataset exists for
+ages 0–4; COUGHVID contributes 88 such recordings in total. It was measured on
+children rather than assumed to work — see the table above — but 59 under-fives
+is a small test set, and COUGHVID's ages are self-reported on a web form.
 
 **The test set shares sources with training.** It is a held-out split, not external validation. Performance on films from a hospital the model has never seen is unknown.
 

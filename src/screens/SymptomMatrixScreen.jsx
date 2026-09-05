@@ -41,8 +41,8 @@ export default function SymptomMatrixScreen({
   onChange,
   onCalculate,
   onScanXray,
+  onRecordCough,
 }) {
-  const [aiNote, setAiNote] = useState(false)
   const { t } = useI18n()
 
   const {
@@ -163,18 +163,10 @@ export default function SymptomMatrixScreen({
             <SecondaryButton onClick={onScanXray}>
               {t('symptoms.scanXray')}
             </SecondaryButton>
-            <SecondaryButton onClick={() => setAiNote(true)}>
+            <SecondaryButton onClick={onRecordCough}>
               {t('symptoms.recordCough')}
             </SecondaryButton>
           </div>
-          {aiNote && (
-            <p
-              aria-live="polite"
-              className="mt-3 text-sm leading-relaxed text-faint md:text-base"
-            >
-              {t('common.aiComingSoon')}
-            </p>
-          )}
         </div>
       </main>
 

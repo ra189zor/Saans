@@ -13,3 +13,14 @@ python-multipart>=0.0.9
 tensorflow>=2.10,<2.11 ; sys_platform == "win32"
 tensorflow>=2.15 ; sys_platform != "win32"
 numpy<2 ; sys_platform == "win32"
+
+# Cough analysis. numpy alone covers the signal processing in server/audio.py;
+# scikit-learn is what unpickles and runs the trained cough detector. Without it
+# the service still works - it falls back to the energy-based burst detector.
+scikit-learn>=1.3
+
+# Training the cough detector only, never needed to serve. COUGHVID ships webm,
+# ogg and mislabelled mp4; this bundles a static ffmpeg to decode them. Do not
+# use conda's ffmpeg on Windows - its DLL chain fails to load and it exits 0
+# having produced nothing.
+# imageio-ffmpeg>=0.4

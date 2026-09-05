@@ -15,6 +15,7 @@ import ContactScreen from './screens/ContactScreen.jsx'
 import SymptomMatrixScreen, {
   EMPTY_SYMPTOMS,
 } from './screens/SymptomMatrixScreen.jsx'
+import CoughRecordScreen from './screens/CoughRecordScreen.jsx'
 import XrayScanScreen from './screens/XrayScanScreen.jsx'
 import XrayFeaturesScreen from './screens/XrayFeaturesScreen.jsx'
 import ResultsScreen from './screens/ResultsScreen.jsx'
@@ -32,6 +33,9 @@ export default function App() {
   const [referralCode, setReferralCode] = useState(null)
   const [symptoms, setSymptoms] = useState(EMPTY_SYMPTOMS)
   const [xray, setXray] = useState(null)
+  /* Acoustic hint only. It is never passed to scoreFindings() - the WHO
+     cough criterion is the two-week history, not the recording. */
+  const [cough, setCough] = useState(null)
   function startNewScreening() {
     setDetectedSigns([])
     setFastTrack(false)
@@ -44,6 +48,7 @@ export default function App() {
     setReferralCode(null)
     setSymptoms(EMPTY_SYMPTOMS)
     setXray(null)
+    setCough(null)
     setScreen('welcome')
   }
 
@@ -175,11 +180,23 @@ export default function App() {
           symptoms={symptoms}
           onChange={(patch) => setSymptoms((prev) => ({ ...prev, ...patch }))}
           onScanXray={() => setScreen('xrayScan')}
+          onRecordCough={() => setScreen('coughRecord')}
           onCalculate={(result) => {
             setScore(result)
             setReferralCode(makeReferralCode())
             setScreen('results')
           }}
+        />
+      )
+
+    case 'coughRecord':
+      return (
+        <CoughRecordScreen
+          onDone={(analysis) => {
+            setCough(analysis)
+            setScreen('symptoms')
+          }}
+          onBack={() => setScreen('symptoms')}
         />
       )
 

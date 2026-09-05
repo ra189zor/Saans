@@ -32,3 +32,4 @@ notebooks/*.png
 # downloaded datasets (~15 GB, see notebooks/train_xray_model_local.ipynb)
 saans_data/
 notebooks/*.json
+backend/models/*.joblib

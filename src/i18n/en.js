@@ -183,6 +183,39 @@ export const en = {
     older: 'over 5 years',
   },
 
+  coughRecord: {
+    title: 'Record the cough',
+    guidance:
+      'Hold the tablet about 30 cm from the child and ask the carer to encourage a cough. Recording stops after 10 seconds.',
+    start: 'Start recording',
+    stop: 'Stop',
+    recording: 'Recording',
+    analyzing: 'Analysing the recording...',
+    reRecord: 'Re-record',
+    use: 'Use this recording',
+    back: 'Back to symptoms',
+    patternLabel: 'Cough pattern',
+    characterLabel: 'Sound',
+    coughsLabel: 'Coughs detected',
+    pattern: {
+      wet: 'Wet',
+      dry: 'Dry',
+      none: 'No clear cough',
+    },
+    character: {
+      abnormal: 'Sounds abnormal',
+      normal: 'Sounds normal',
+      unclear: 'Not enough sound',
+    },
+    disclaimer:
+      'Sound analysis is only a support hint - the decision comes from the WHO algorithm.',
+    methodNote:
+      'Cough detection is a model trained on adult recordings; wet or dry is estimated from acoustic features and is not yet calibrated. The WHO cough criterion is the two-week history you take, not this recording.',
+    permissionDenied:
+      'Microphone permission was refused. Allow microphone access in the browser and try again.',
+    unsupported: 'This device or browser cannot record audio.',
+  },
+
   xrayScan: {
     title: 'Scan chest X-ray',
     guidance:

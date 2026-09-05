@@ -1,0 +1,152 @@
+{
+  "task": "cough vs non-cough",
+  "not_a_tb_model": "Detects whether a recording contains a cough. It says nothing about tuberculosis. The WHO cough criterion is duration over two weeks, taken as history by the health worker.",
+  "model": "RandomForestClassifier(n_estimators=300, max_depth=18)",
+  "features": [
+    "mfcc_mean_0",
+    "mfcc_mean_1",
+    "mfcc_mean_2",
+    "mfcc_mean_3",
+    "mfcc_mean_4",
+    "mfcc_mean_5",
+    "mfcc_mean_6",
+    "mfcc_mean_7",
+    "mfcc_mean_8",
+    "mfcc_mean_9",
+    "mfcc_mean_10",
+    "mfcc_mean_11",
+    "mfcc_mean_12",
+    "mfcc_mean_13",
+    "mfcc_mean_14",
+    "mfcc_mean_15",
+    "mfcc_mean_16",
+    "mfcc_mean_17",
+    "mfcc_mean_18",
+    "mfcc_mean_19",
+    "mfcc_std_0",
+    "mfcc_std_1",
+    "mfcc_std_2",
+    "mfcc_std_3",
+    "mfcc_std_4",
+    "mfcc_std_5",
+    "mfcc_std_6",
+    "mfcc_std_7",
+    "mfcc_std_8",
+    "mfcc_std_9",
+    "mfcc_std_10",
+    "mfcc_std_11",
+    "mfcc_std_12",
+    "mfcc_std_13",
+    "mfcc_std_14",
+    "mfcc_std_15",
+    "mfcc_std_16",
+    "mfcc_std_17",
+    "mfcc_std_18",
+    "mfcc_std_19",
+    "mfcc_delta_mean_0",
+    "mfcc_delta_mean_1",
+    "mfcc_delta_mean_2",
+    "mfcc_delta_mean_3",
+    "mfcc_delta_mean_4",
+    "mfcc_delta_mean_5",
+    "mfcc_delta_mean_6",
+    "mfcc_delta_mean_7",
+    "mfcc_delta_mean_8",
+    "mfcc_delta_mean_9",
+    "mfcc_delta_mean_10",
+    "mfcc_delta_mean_11",
+    "mfcc_delta_mean_12",
+    "mfcc_delta_mean_13",
+    "mfcc_delta_mean_14",
+    "mfcc_delta_mean_15",
+    "mfcc_delta_mean_16",
+    "mfcc_delta_mean_17",
+    "mfcc_delta_mean_18",
+    "mfcc_delta_mean_19",
+    "zcr",
+    "centroid_hz",
+    "rolloff85_hz",
+    "low_band_ratio",
+    "burst_count",
+    "mean_burst_ms"
+  ],
+  "dataset": "COUGHVID v3 (all containers, decoded via ffmpeg)",
+  "label_source": "COUGHVID 'cough_detected' - the authors' own published cough classifier, not human annotation",
+  "trained_on": "adults only (age >= 18); every child held out of training",
+  "n_train_adults": 4626,
+  "results": {
+    "adults_heldout": {
+      "n": 1157,
+      "n_cough": 700,
+      "accuracy": 0.9352,
+      "precision": 0.9334,
+      "recall": 0.9614,
+      "roc_auc": 0.9819,
+      "confusion_matrix": [
+        [
+          409,
+          48
+        ],
+        [
+          27,
+          673
+        ]
+      ]
+    },
+    "children_under_18": {
+      "n": 960,
+      "n_cough": 742,
+      "accuracy": 0.9354,
+      "precision": 0.9658,
+      "recall": 0.9501,
+      "roc_auc": 0.9719,
+      "confusion_matrix": [
+        [
+          193,
+          25
+        ],
+        [
+          37,
+          705
+        ]
+      ]
+    },
+    "children_under_12": {
+      "n": 175,
+      "n_cough": 105,
+      "accuracy": 0.8971,
+      "precision": 0.9223,
+      "recall": 0.9048,
+      "roc_auc": 0.9531,
+      "confusion_matrix": [
+        [
+          62,
+          8
+        ],
+        [
+          10,
+          95
+        ]
+      ]
+    },
+    "children_under_5": {
+      "n": 59,
+      "n_cough": 34,
+      "accuracy": 0.8814,
+      "precision": 0.9091,
+      "recall": 0.8824,
+      "roc_auc": 0.9506,
+      "confusion_matrix": [
+        [
+          22,
+          3
+        ],
+        [
+          4,
+          30
+        ]
+      ]
+    }
+  },
+  "why_this_split": "Saans screens under-fives and COUGHVID has only 88 recordings from that age band - too few to train on, enough to test on. Training on adults and testing on children measures the age gap instead of hiding it."
+}
