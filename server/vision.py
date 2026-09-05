@@ -1,34 +1,84 @@
 """
 Chest X-ray vision service for Saans.
 
+DEMO_MODE = False -> fine-tuned DenseNet121 (TensorFlow/Keras) with a real
+                     Grad-CAM heatmap. Used automatically when the weights
+                     file is present.
 DEMO_MODE = True  -> deterministic stand-in response with a synthetic
                      Grad-CAM-style overlay drawn over the lung fields of the
                      uploaded image. No model weights required.
-DEMO_MODE = False -> fine-tuned DenseNet121 (Shenzhen + Montgomery TB
-                     datasets) with a real Grad-CAM heatmap. Disabled by
-                     default; see load_model() / run_model().
+
+The model is a triage aid, never a diagnosis. It was trained on adult TB chest
+X-ray datasets as proof-of-concept; paediatric fine-tuning is the Phase-1 pilot
+roadmap item. Its own metadata sidecar records that the headline AUC is inflated
+by collection artifacts in one training source; treat ~0.94 as the honest figure.
 """
 
 import base64
+import importlib.util
 import io
+import json
 import os
+import sys
 
 import numpy as np
 from PIL import Image
 
-# Flip to False (or set SAANS_DEMO_MODE=0) once model weights are in place.
-DEMO_MODE = os.environ.get("SAANS_DEMO_MODE", "1") != "0"
+_MODELS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "backend", "models")
 
 MODEL_WEIGHTS = os.environ.get(
-    "SAANS_CXR_WEIGHTS", os.path.join(os.path.dirname(__file__), "weights", "densenet121_tb.pt")
+    "SAANS_CXR_WEIGHTS", os.path.join(_MODELS_DIR, "saans_xray_densenet121.h5")
 )
+MODEL_METADATA = os.environ.get(
+    "SAANS_CXR_METADATA", os.path.join(_MODELS_DIR, "saans_xray_densenet121.json")
+)
+
+# Demo unless SAANS_DEMO_MODE says otherwise; when it is unset, run the real
+# model if - and only if - the weights are actually on disk. That keeps a fresh
+# checkout working without the 70 MB file, and needs no config once it is there.
+_demo_override = os.environ.get("SAANS_DEMO_MODE")
+DEMO_MODE = (_demo_override != "0") if _demo_override is not None else not os.path.exists(MODEL_WEIGHTS)
+
+# Weights present but TensorFlow missing means the server was started from the
+# wrong Python environment. Say so at startup: left to the lazy import inside
+# run_model(), it surfaces once per request as "Could not analyze image", which
+# blames the X-ray for what is a setup problem.
+if not DEMO_MODE and importlib.util.find_spec("tensorflow") is None:
+    raise RuntimeError(
+        f"Model weights are present at {MODEL_WEIGHTS}, but TensorFlow is not "
+        f"installed in this Python environment ({sys.executable}).\n"
+        "Start the server from the environment that has TensorFlow, e.g.\n"
+        "    conda activate saans && uvicorn server.app:app --port 8000\n"
+        "or set SAANS_DEMO_MODE=1 to run the demo stand-in instead."
+    )
+
+
+def _load_metadata() -> dict:
+    try:
+        with open(MODEL_METADATA, encoding="utf-8") as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return {}
+
+
+_METADATA = _load_metadata()
+
+# Decision threshold, from the sidecar the training notebook writes. Chosen for
+# >=90% recall on same-source validation, not left at an arbitrary 0.5 - missing
+# a case costs far more than a false alarm in a screening tool.
+TB_THRESHOLD = float(_METADATA.get("threshold", 0.5))
+
+# Input geometry the model was trained at.
+MODEL_INPUT_SIZE = tuple(_METADATA.get("input_shape", [224, 224, 3])[:2])
+GRADCAM_LAYER = _METADATA.get("gradcam_layer", "conv5_block16_concat")
 
 # Working resolution for the overlay we hand back to the client.
 OVERLAY_SIZE = (512, 512)
 
 # Demo stand-in values. tb_probability is fixed so the demo is reproducible.
+# Matches the real path: opacities only, never a finding the model cannot see.
 DEMO_TB_PROBABILITY = 0.86
-DEMO_CXR_FEATURES = ["opacities", "enlarged lymph nodes"]
+DEMO_CXR_FEATURES = ["opacities"]
 
 
 # --------------------------------------------------------------------------
@@ -114,76 +164,87 @@ def to_data_url(image: Image.Image) -> str:
 _model = None
 
 
+_grad_model = None
+
+
 def load_model():
     """
-    Fine-tuned DenseNet121 (Shenzhen + Montgomery TB datasets), binary head.
-    Imports torch lazily so the demo path has no torch dependency.
+    Fine-tuned DenseNet121 with a single sigmoid head, as produced by
+    notebooks/train_xray_model_local.ipynb. TensorFlow is imported lazily so the
+    demo path never pays for it.
     """
     global _model
     if _model is not None:
         return _model
 
-    import torch
-    from torchvision import models
+    import tensorflow as tf
 
-    net = models.densenet121(weights=None)
-    net.classifier = torch.nn.Linear(net.classifier.in_features, 2)
-    state = torch.load(MODEL_WEIGHTS, map_location="cpu")
-    net.load_state_dict(state.get("state_dict", state))
-    net.eval()
-    _model = net
+    if not os.path.exists(MODEL_WEIGHTS):
+        raise FileNotFoundError(
+            f"No model weights at {MODEL_WEIGHTS}. Train them with "
+            "notebooks/train_xray_model_local.ipynb, or set SAANS_DEMO_MODE=1."
+        )
+
+    _model = tf.keras.models.load_model(MODEL_WEIGHTS, compile=False)
     return _model
+
+
+def _get_grad_model():
+    """Twin of the model that also returns the last conv feature maps, built once."""
+    global _grad_model
+    if _grad_model is None:
+        import tensorflow as tf
+
+        net = load_model()
+        _grad_model = tf.keras.models.Model(
+            net.inputs, [net.get_layer(GRADCAM_LAYER).output, net.output]
+        )
+    return _grad_model
+
+
+def _preprocess(image: Image.Image) -> np.ndarray:
+    """RGB, resized to the training geometry, scaled exactly as training did."""
+    from tensorflow.keras.applications.densenet import preprocess_input
+
+    resized = image.convert("RGB").resize(MODEL_INPUT_SIZE, Image.BILINEAR)
+    return preprocess_input(np.asarray(resized, dtype="float32")[None, ...])
 
 
 def run_model(image: Image.Image):
     """Inference + real Grad-CAM against the last dense block."""
-    import torch
-    import torch.nn.functional as F
-    from torchvision import transforms
+    import tensorflow as tf
 
     net = load_model()
-    target_layer = net.features.denseblock4
+    batch = _preprocess(image)
 
-    preprocess = transforms.Compose(
-        [
-            transforms.Resize((224, 224)),
-            transforms.ToTensor(),
-            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-        ]
-    )
-    tensor = preprocess(image.convert("RGB")).unsqueeze(0)
+    tb_probability = float(net.predict(batch, verbose=0)[0][0])
 
-    captured = {}
-
-    def forward_hook(_module, _inp, out):
-        captured["activations"] = out.detach()
-
-    def backward_hook(_module, _grad_in, grad_out):
-        captured["gradients"] = grad_out[0].detach()
-
-    handles = [
-        target_layer.register_forward_hook(forward_hook),
-        target_layer.register_full_backward_hook(backward_hook),
-    ]
-
+    # Grad-CAM on the TB logit rather than the sigmoid output: once the model is
+    # confident the sigmoid saturates and its gradient vanishes, which would hand
+    # back a blank heatmap on exactly the films worth looking at.
+    head = net.get_layer("tb_output")
+    saved_activation = head.activation
+    head.activation = tf.keras.activations.linear
     try:
-        logits = net(tensor)
-        probs = F.softmax(logits, dim=1)
-        tb_index = 1
-        tb_probability = float(probs[0, tb_index])
+        grad_model = _get_grad_model()
+        with tf.GradientTape() as tape:
+            conv_out, logit = grad_model(batch, training=False)
+            score = logit[:, 0]
+        grads = tape.gradient(score, conv_out)
+        if grads is None:
+            raise RuntimeError("no gradient reached " + GRADCAM_LAYER)
 
-        net.zero_grad()
-        logits[0, tb_index].backward()
+        # The trained model carries a mixed-float16 policy; Grad-CAM maths runs
+        # in float32 so the small gradients do not underflow.
+        conv_out = tf.cast(conv_out, tf.float32)
+        grads = tf.cast(grads, tf.float32)
 
-        activations = captured["activations"][0]
-        gradients = captured["gradients"][0]
-        weights = gradients.mean(dim=(1, 2), keepdim=True)
-        cam = F.relu((weights * activations).sum(dim=0))
-        cam = cam / (cam.max() + 1e-9)
-        cam_np = cam.cpu().numpy()
+        weights = tf.reduce_mean(grads, axis=(1, 2))
+        cam = tf.nn.relu(tf.einsum("bhwc,bc->bhw", conv_out, weights)[0])
+        cam = cam / (tf.reduce_max(cam) + 1e-8)
+        cam_np = cam.numpy()
     finally:
-        for handle in handles:
-            handle.remove()
+        head.activation = saved_activation
 
     return tb_probability, cam_np
 
@@ -192,14 +253,29 @@ def suggest_features(tb_probability: float, cam: np.ndarray):
     """
     Map model output to candidate CXR features for the confirmation screen.
     These are suggestions only — the health worker confirms or edits them.
+
+    Below the threshold nothing is suggested. The screen pre-ticks whatever comes
+    back, and pre-ticking a finding on a film the model scored as clearly normal
+    pushes the health worker toward a finding the model did not make.
     """
-    features = []
-    if tb_probability >= 0.5:
-        features.append("opacities")
-    upper = cam[: cam.shape[0] // 2]
-    if float(upper.mean()) > float(cam.mean()):
-        features.append("enlarged lymph nodes")
-    return features or ["opacities"]
+    if tb_probability < TB_THRESHOLD:
+        return []
+
+    # Only "opacities" (+5 in Algorithm A), and deliberately nothing else.
+    #
+    # The model has a single output - P(TB). It was never trained to tell one
+    # CXR feature from another, so it cannot report which finding it saw. An
+    # earlier version inferred "enlarged lymph nodes" from the upper half of the
+    # Grad-CAM being warmer than average; that is worth +17, above the >10
+    # treatment threshold on its own, and would have started a child on six
+    # months of TB treatment on the strength of a heatmap average.
+    #
+    # Enlarged lymph nodes is the most important paediatric finding, so the
+    # confirmation screen prompts the health worker to look for it instead.
+    # Restoring the suggestion needs a multi-label feature detector trained on
+    # paediatric films - a Phase-2 item, not a heuristic.
+    _ = cam  # kept in the signature for when that model exists
+    return ["opacities"]
 
 
 # --------------------------------------------------------------------------
@@ -223,6 +299,10 @@ def analyze(image_bytes: bytes) -> dict:
     return {
         "demo_mode": DEMO_MODE,
         "tb_probability": round(float(tb_probability), 4),
+        # The client shows the probability, but any yes/no call belongs to this
+        # threshold, not to 0.5.
+        "threshold": round(TB_THRESHOLD, 4),
+        "tb_suspect": bool(tb_probability >= TB_THRESHOLD),
         "heatmap_overlay": to_data_url(overlay),
         "suggested_cxr_features": features,
     }

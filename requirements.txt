@@ -4,6 +4,12 @@ pillow>=10
 numpy>=1.26
 python-multipart>=0.0.9
 
-# Only needed when DEMO_MODE = False (real DenseNet121 + Grad-CAM):
-# torch>=2.2
-# torchvision>=0.17
+# Real DenseNet121 + Grad-CAM. Only needed when the weights file is present at
+# backend/models/saans_xray_densenet121.h5; without it the service falls back to
+# DEMO_MODE and none of this is imported.
+#
+# On native Windows, 2.10 is the last release with GPU support, and it needs
+# Python 3.10 and numpy<2. That is the combination the training notebook uses.
+tensorflow>=2.10,<2.11 ; sys_platform == "win32"
+tensorflow>=2.15 ; sys_platform != "win32"
+numpy<2 ; sys_platform == "win32"

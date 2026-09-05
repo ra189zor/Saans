@@ -66,6 +66,16 @@ export default function XrayFeaturesScreen({
           {t('xrayFeatures.hint')}
         </p>
 
+        {/* Enlarged lymph nodes is the commonest paediatric TB finding and the
+            heaviest item here at +17 — above the treatment threshold on its own.
+            The model has a single TB output and cannot identify it, so it is
+            never pre-checked; the health worker is asked to look instead. */}
+        <div className="mt-5 rounded-xl border border-amber bg-surface p-5 md:p-6">
+          <p className="text-sm leading-relaxed text-fg md:text-base">
+            {t('xrayFeatures.lymphNodePrompt')}
+          </p>
+        </div>
+
         <div className="mt-5 flex flex-col gap-3 md:gap-4">
           {CXR_ITEMS.map((item) => (
             <FeatureRow

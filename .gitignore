@@ -1,12 +1,34 @@
+# node
 node_modules
 dist
 dist-ssr
 *.local
-.DS_Store
 .vite
-.env
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# editors / os
+.DS_Store
 .claude
-# trained model weights (see backend/models/README.md)
+.vscode/
+
+# secrets
+.env
+kaggle.json
+
+# trained model weights - too large for git, see backend/models/README.md
 backend/models/*.h5
 backend/models/*.pt
 server/weights/
+
+# training run outputs (canonical copies live in backend/models/)
+notebooks/*.h5
+notebooks/*.png
+
+# downloaded datasets (~15 GB, see notebooks/train_xray_model_local.ipynb)
+saans_data/
+notebooks/*.json

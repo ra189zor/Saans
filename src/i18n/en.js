@@ -205,6 +205,8 @@ export const en = {
     title: 'Confirm chest X-ray features',
     probabilityLabel: 'Model TB probability',
     hint: 'Suggestions are pre-checked from the image analysis. Confirm or change them before scoring.',
+    lymphNodePrompt:
+      'Check the middle of the chest for enlarged lymph nodes yourself. This is the most common sign of TB in young children. The model cannot detect it, so this one is your judgement.',
     sumB: 'Sum B',
     confirm: 'Confirm and calculate',
     overlayAlt: 'Chest X-ray with model attention heatmap overlay',

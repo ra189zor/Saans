@@ -1,0 +1,77 @@
+{
+  "model": "densenet121",
+  "version": 2,
+  "framework": "tensorflow-2.10.1",
+  "input_shape": [
+    224,
+    224,
+    3
+  ],
+  "preprocessing": "tf.keras.applications.densenet.preprocess_input (torch mode)",
+  "output": "single sigmoid unit, P(TB)",
+  "classes": {
+    "0": "Normal",
+    "1": "TB"
+  },
+  "threshold": 0.71,
+  "threshold_chosen_for": "recall >= 0.90 on the Shenzhen subset - the only source where TB and Normal films come from the same hospital and machine, so no collection artifact is available to shortcut. Chosen there rather than on the pooled test set, which is dominated by easier sources.",
+  "gradcam_layer": "conv5_block16_concat",
+  "train_datasets": [
+    "montgomery",
+    "qatar",
+    "shenzhen",
+    "tbx11k"
+  ],
+  "n_train": 9285,
+  "n_val": 1990,
+  "n_test": 1990,
+  "test_metrics": {
+    "roc_auc": 0.9949,
+    "pr_auc": 0.9839,
+    "recall": 0.9509,
+    "precision": 0.9003,
+    "accuracy": 0.9779,
+    "specificity": 0.9824,
+    "confusion_matrix": [
+      [
+        1675,
+        30
+      ],
+      [
+        14,
+        271
+      ]
+    ],
+    "missed_tb": 14,
+    "false_alarms": 30
+  },
+  "scope_note": "Trained on adult TB CXR datasets as proof-of-concept; paediatric fine-tuning is the Phase-1 pilot roadmap item. Chest X-ray is a triage aid, not a diagnosis - bacteriological confirmation remains the diagnostic standard.",
+  "per_source_test_metrics": {
+    "montgomery": {
+      "films": 21,
+      "tb": 6,
+      "roc_auc": 0.933,
+      "recall": 0.667
+    },
+    "qatar": {
+      "films": 624,
+      "tb": 102,
+      "roc_auc": 1.0,
+      "recall": 1.0
+    },
+    "shenzhen": {
+      "films": 94,
+      "tb": 50,
+      "roc_auc": 0.942,
+      "recall": 0.88
+    },
+    "tbx11k": {
+      "films": 1251,
+      "tb": 127,
+      "roc_auc": 0.993,
+      "recall": 0.953
+    }
+  },
+  "honest_performance_note": "Headline pooled AUC of 0.9949 is inflated. In the Qatar set the Normal and TB films come from different source collections and differ in appearance for non-clinical reasons, so the model separates them perfectly (AUC 1.000) without reading pathology. Shenzhen is the fair comparison - single hospital, single machine, both classes - and gives AUC 0.942. Quote 0.94, not 0.99.",
+  "serving_dtype": "float32 (rebuilt from the mixed_float16 training weights; ~62x faster on CPU)"
+}

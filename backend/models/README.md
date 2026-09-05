@@ -1,22 +1,53 @@
 # backend/models
 
-Drop the trained chest X-ray weights here.
+Trained weights for the Saans chest X-ray triage model.
 
-| file | produced by | notes |
-| --- | --- | --- |
-| `saans_xray_densenet121.h5` | [`notebooks/train_xray_model.ipynb`](../../notebooks/train_xray_model.ipynb) block 5 | Keras/TF full model: DenseNet121 backbone, single sigmoid = P(TB) |
-| `saans_xray_densenet121.json` | same notebook, block 5 | metrics sidecar: val accuracy/precision/recall/AUC, threshold, Grad-CAM layer |
+| file | what it is |
+| --- | --- |
+| `saans_xray_densenet121.h5` | DenseNet121, TensorFlow/Keras, single sigmoid output = P(TB). ~70 MB, gitignored. |
+| `saans_xray_densenet121.json` | Metrics sidecar. `server/vision.py` reads the decision threshold and the Grad-CAM layer from here — do not hand-edit without re-running the numbers. |
+| `training_curves.png`, `confusion_matrix.png` | Produced by the training notebook. |
 
-Get the `.h5` out of Colab with the notebook's block 8 (`files.download`), or via
-the folder icon in Colab's left sidebar -> three dots next to the file -> Download.
+Produced by [`notebooks/train_xray_model_local.ipynb`](../../notebooks/train_xray_model_local.ipynb).
+Block 8 copies the files here automatically.
 
-Scope note carried over from the notebook: trained on adult TB CXR datasets as
-proof-of-concept; paediatric fine-tuning is the Phase-1 pilot roadmap item.
+## How it is served
 
-Integration: `server/vision.py` currently loads PyTorch weights
-(`densenet121_tb.pt`). Using this `.h5` means switching `load_model()` /
-`run_model()` there to `tf.keras.models.load_model()` plus the Grad-CAM from
-notebook block 6.
+`server/vision.py` runs the real model when the `.h5` is present and falls back to
+`DEMO_MODE` when it is not, so a fresh checkout works without the weights. Force
+either mode with `SAANS_DEMO_MODE=1` / `SAANS_DEMO_MODE=0`.
 
-Weights are gitignored (see the repo `.gitignore`) - they are too large for git
-without LFS.
+The served `.h5` is a **float32** rebuild of the trained network. Training used a
+mixed-float16 policy for GPU speed, which is ~22x slower on a CPU server because
+float16 is emulated there. Same weights, same predictions, no decision changes.
+
+## Performance, honestly
+
+Test set of 1,990 films the model never saw during training or threshold selection:
+
+| | |
+| --- | --- |
+| Recall (TB caught) | 0.9509 — 271 of 285 |
+| Missed TB | 14 |
+| False alarms | 30 of 1,705 healthy films |
+| Specificity | 0.982 |
+| Pooled ROC AUC | 0.9949 |
+
+**Quote 0.94, not 0.99.** The pooled AUC is inflated. In the Qatar training source
+the Normal and TB films come from different collections and differ in appearance
+for non-clinical reasons, so the model separates them perfectly (AUC 1.000)
+without reading pathology. Shenzhen is the fair comparison — one hospital, one
+machine, both classes — and gives **AUC 0.942**, catching 88% of its TB cases. Per-source figures are in the json.
+
+The threshold of **0.71** was chosen for ≥90% recall on Shenzhen rather than on
+the pooled set, so it is tuned to the harder, more realistic data.
+
+## Limitations to carry into any write-up
+
+- Trained on **adult** TB CXR datasets as proof-of-concept; paediatric fine-tuning
+  is the Phase-1 pilot roadmap item, and Saans screens children under five.
+- Chest X-ray is a **triage aid, not a diagnosis**. Bacteriological confirmation
+  (Xpert MTB/RIF, culture) remains the diagnostic standard.
+- The test set shares sources with training. This is not external validation.
+- ~35 near-duplicate films survived cross-source deduplication (~0.26% of data).
+- WHO's recommendation on computer-aided TB detection covers ages 15 and over.
