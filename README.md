@@ -2,7 +2,15 @@
 
 A tablet app for community health workers screening children under five for tuberculosis.
 
-It implements the treatment decision algorithms from the *WHO Operational Handbook on Tuberculosis, Module 5: Management of tuberculosis in children and adolescents* (2022), Annex 5. Every question, weight and threshold in the app comes from that document. An optional chest X-ray model reads an uploaded film and suggests findings for the health worker to confirm.
+It implements the treatment decision algorithms from the *WHO Operational Handbook on Tuberculosis, Module 5: Management of tuberculosis in children and adolescents* (2022), Annex 5. Every question, weight and threshold in the app comes from that document.
+
+Three optional assists sit alongside the algorithm, and none of them can change its answer:
+
+| | what it does | decides anything? |
+| --- | --- | --- |
+| **Chest X-ray model** | reads an uploaded film, suggests findings, shows a Grad-CAM heatmap | no — the health worker confirms every finding, then the score decides |
+| **Cough recording** | ten seconds of audio, cough present, wet or dry | no — a hint only, never reaches the scorer |
+| **Ask WHO Assistant** | answers questions from the handbook, with page citations | no — a reference lookup |
 
 English and Urdu, with full right-to-left layout.
 
@@ -22,6 +30,9 @@ The app walks through WHO's decision path in order. Cheaper and more definitive 
 6. **Contact history** — a household or close TB contact in the last twelve months also starts treatment without scoring.
 7. **Symptoms and vitals** — cough and fever duration, five symptom toggles, respiratory and heart rate with age-banded thresholds that auto-suggest tachypnoea and tachycardia.
 8. **Chest X-ray (optional)** — capture or upload a film, review the model's reading, confirm the findings.
+
+At the symptom step a cough can also be recorded, and from the results screen the
+health worker can ask the WHO Assistant a question. Neither affects the score.
 
 The score decides. With an X-ray the app uses Algorithm A weights plus the X-ray sum; without one it uses Algorithm B weights. Treatment is indicated above 10 in both.
 
@@ -93,6 +104,67 @@ what produced the hint, in English and Urdu.
 Retrain with `python notebooks/train_cough_model.py`. Feature extraction is
 shared with `server/audio.py`, so training and serving cannot drift apart.
 
+## Ask WHO Assistant
+
+The results screen has an **Ask WHO Assistant** button. It opens a chat where the
+health worker can type a question — "What is the TB dose for a 12 kg child?" —
+and get an answer drawn only from the WHO handbook, with the page it came from
+shown underneath.
+
+Retrieval is local. The handbook is split into 1,038 chunks, embedded with
+all-MiniLM-L6-v2 running on onnxruntime, and searched by cosine similarity over a
+numpy matrix. Only writing the final answer calls out to a hosted model (Groq).
+
+### It refuses rather than guesses
+
+Two independent guards, because one is not enough:
+
+1. **Before any API call**, retrieval similarity is checked. If the best passage
+   scores below 0.25 the assistant refuses immediately and no model is called —
+   a model handed weak context is a model invited to improvise. Asking it the
+   capital of France scores 0.14 and gets the refusal without leaving the machine.
+2. **The system prompt** tells the model to emit one exact sentence when the
+   passages fall short, and the reply is checked for it afterwards.
+
+The sentence is always: *"I cannot find this in the WHO handbook — please refer
+to a clinician."*
+
+### Why not ChromaDB
+
+ChromaDB pulls opentelemetry, which requires protobuf ≥ 5. TensorFlow 2.10, which
+runs the chest X-ray model, requires protobuf < 3.20. They cannot coexist, and
+installing chromadb silently breaks the X-ray model. For a 264-page handbook the
+whole index is 1.7 MB and search is a dot product, so a vector database would be
+scaffolding around three lines of numpy.
+
+### Why Groq
+
+Its free tier is persistent and needs no card. Alibaba Model Studio was the
+alternative, but its free quota expires 90 days after activation — fine today,
+dead by the time anyone else opens this repository.
+
+**This is the only part of Saans that needs the internet.** Screening, scoring,
+the X-ray model and the cough analyser all run locally. Without a key or a
+connection the assistant says so and everything else carries on.
+
+### Setup
+
+Get a free key at <https://console.groq.com/keys>, then create `.env` in the
+project root (it is gitignored — never commit it):
+
+```
+GROQ_API_KEY=gsk_your_key_here
+```
+
+`.env.example` has the template. Build the search index once:
+
+```bash
+python notebooks/build_who_index.py
+```
+
+That downloads the ~90 MB encoder on first run and writes
+`backend/models/who_index.npz`. The index is committed; the encoder is not.
+
 ## Running it
 
 ### Frontend
@@ -104,9 +176,11 @@ npm run dev
 
 Opens on http://localhost:5173.
 
-### Vision API
+### Backend
 
-The API needs TensorFlow, and TensorFlow 2.10 is the last release with GPU support on native Windows, which in turn requires Python 3.10. It therefore runs in its own environment rather than alongside the rest of the tooling.
+One FastAPI service serves all three assists. It needs TensorFlow, and TensorFlow
+2.10 is the last release with GPU support on native Windows, which in turn
+requires Python 3.10 and numpy < 2. It therefore runs in its own environment.
 
 ```bash
 conda create -n saans python=3.10 -y
@@ -116,10 +190,14 @@ pip install -r requirements.txt
 uvicorn server.app:app --port 8000
 ```
 
-Check it came up with the real model:
+Do not `pip install chromadb` into this environment. It upgrades protobuf past
+what TensorFlow 2.10 accepts and the X-ray model stops loading.
+
+Check both models came up:
 
 ```bash
 curl http://localhost:8000/api/health
+curl http://localhost:8000/api/assistant/status
 ```
 
 `"demo_mode": false` means the weights were found. `true` means the service is returning a fixed stand-in response, which is what a fresh checkout does, since the 70 MB weights file is not in the repository. Set `SAANS_DEMO_MODE=1` to force that behaviour deliberately.
@@ -132,9 +210,21 @@ Train them with the notebook, or place `saans_xray_densenet121.h5` and its `.jso
 
 ## Training
 
-The notebook downloads roughly 9 GB across the four datasets, decodes and caches them, trains in two phases, picks a threshold, and writes the weights and metrics. The Kaggle sets need an API token; the notebook explains where to put it.
+Three separate jobs, all runnable on a laptop. Only the first needs a GPU.
 
-On an RTX 3050 laptop GPU: about 40 minutes downloading, a few minutes decoding, and 60 to 90 minutes training. The decoded image cache persists, so subsequent runs skip straight to training.
+**X-ray** — `notebooks/train_xray_model_local.ipynb`. Downloads roughly 9 GB
+across the four datasets, decodes and caches them, trains in two phases, picks a
+threshold, and writes the weights and metrics. The Kaggle sets need an API token;
+the notebook explains where to put it. On an RTX 3050 laptop GPU: about 40
+minutes downloading, a few minutes decoding, 60 to 90 minutes training. The
+decoded image cache persists, so later runs go straight to training.
+
+**Cough** — `python notebooks/train_cough_model.py`. Downloads COUGHVID (2.3 GB),
+decodes it through a bundled static ffmpeg, holds every child out of training,
+and scores the result by age band. A few minutes on CPU once the audio is local.
+
+**Handbook index** — `python notebooks/build_who_index.py`. Chunks the PDF and
+embeds 1,038 passages. Under a minute after the encoder downloads.
 
 ## Layout
 
@@ -147,12 +237,15 @@ src/
     vitals.js       age-banded respiratory and heart rate thresholds
   i18n/           English and Urdu dictionaries
 server/
-  app.py          FastAPI endpoints
+  app.py          FastAPI endpoints, .env loader
   vision.py       X-ray model loading, Grad-CAM, heatmap rendering
   audio.py        cough features, burst detection, trained cough detector
-backend/models/   weights and metrics
-notebooks/        training notebook (X-ray) and training script (cough)
+  rag.py          handbook chunking, embeddings, retrieval, grounded answering
+backend/models/   weights, metrics, and the handbook search index
+notebooks/        train_xray_model_local.ipynb, train_cough_model.py,
+                  build_who_index.py
 books/            the WHO handbook this implements
+.env              your Groq key — gitignored, see .env.example
 ```
 
 ## Limitations
@@ -170,6 +263,11 @@ ages 0–4; COUGHVID contributes 88 such recordings in total. It was measured on
 children rather than assumed to work — see the table above — but 59 under-fives
 is a small test set, and COUGHVID's ages are self-reported on a web form.
 
+**The assistant can only be as good as its retrieval.** If the right passage is
+not among the four retrieved, the answer will be a refusal rather than a wrong
+answer — but a refusal on a question the handbook does answer is still a failure.
+It is also the one feature that needs the internet.
+
 **The test set shares sources with training.** It is a held-out split, not external validation. Performance on films from a hospital the model has never seen is unknown.
 
 **About 35 near-duplicate films survived deduplication**, roughly 0.26% of the data, where a re-encoded copy hashed differently from the original.
@@ -180,6 +278,9 @@ is a small test set, and COUGHVID's ages are self-reported on a web form.
 - Replace the single TB output with a multi-label detector for WHO's five X-ray findings, so lymph nodes can be suggested honestly
 - Support lateral views, which improve accuracy in younger children
 - External validation on films from a clinic outside the training sources
+- Service worker and manifest, so the app installs and runs offline as a PWA
+- Native Android via Capacitor, with the models converted to TFLite for on-device inference
+- A local LLM option (Ollama) so the assistant works without a connection
 
 ## References
 

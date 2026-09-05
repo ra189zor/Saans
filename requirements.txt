@@ -24,3 +24,15 @@ scikit-learn>=1.3
 # use conda's ffmpeg on Windows - its DLL chain fails to load and it exits 0
 # having produced nothing.
 # imageio-ffmpeg>=0.4
+
+# Ask WHO Assistant. Retrieval is entirely local: the MiniLM sentence encoder
+# runs on onnxruntime (no torch), and search is a numpy dot product over ~1,000
+# handbook chunks. Only writing the final answer needs the internet.
+#
+# ChromaDB is deliberately NOT used. It pulls opentelemetry, which requires
+# protobuf >= 5, while TensorFlow 2.10 requires protobuf < 3.20. Installing it
+# silently breaks the chest X-ray model.
+onnxruntime>=1.16
+tokenizers>=0.15
+huggingface-hub>=0.20   # downloads the encoder once, then unused
+pypdf>=4.0              # chunking the handbook; only needed to build the index

@@ -15,6 +15,7 @@ import ContactScreen from './screens/ContactScreen.jsx'
 import SymptomMatrixScreen, {
   EMPTY_SYMPTOMS,
 } from './screens/SymptomMatrixScreen.jsx'
+import AskWhoScreen from './screens/AskWhoScreen.jsx'
 import CoughRecordScreen from './screens/CoughRecordScreen.jsx'
 import XrayScanScreen from './screens/XrayScanScreen.jsx'
 import XrayFeaturesScreen from './screens/XrayFeaturesScreen.jsx'
@@ -229,6 +230,11 @@ export default function App() {
         />
       )
 
+    case 'assistant':
+      /* Reference lookup only. It reads nothing from the screening state and
+         writes nothing back - the score is already decided by this point. */
+      return <AskWhoScreen onBack={() => setScreen('results')} />
+
     case 'results':
       return (
         <ResultsScreen
@@ -238,6 +244,7 @@ export default function App() {
           highRisk={highRisk}
           referralCode={referralCode}
           heatmapOverlay={xray?.analysis?.heatmap_overlay ?? null}
+          onAskAssistant={() => setScreen('assistant')}
           onRestart={startNewScreening}
         />
       )

@@ -183,6 +183,29 @@ export const en = {
     older: 'over 5 years',
   },
 
+  assistant: {
+    title: 'Ask WHO Assistant',
+    subtitle: 'Answers come only from the WHO Operational Handbook on Tuberculosis, Module 5. Nothing else.',
+    tryAsking: 'Try asking',
+    suggestions: {
+      startTreatment: 'When should I start TB treatment?',
+      fourMonth: 'What is the 4-month regimen?',
+      malnutrition: 'How do I manage a child with severe malnutrition?',
+    },
+    placeholder: 'Type your question',
+    send: 'Ask',
+    thinking: 'Looking in the handbook...',
+    sourceLabel: 'Source',
+    page: 'Handbook page {page}',
+    disclaimer:
+      'This is a handbook lookup, not clinical advice, and it does not change the screening score. Check the page shown before acting on an answer.',
+    noKey:
+      'The assistant needs an internet connection and an API key. Everything else in Saans works without one.',
+    noIndex:
+      'The handbook has not been indexed yet. Run: python notebooks/build_who_index.py',
+    serverDown: 'Cannot reach the Saans service. Check that the backend is running.',
+  },
+
   coughRecord: {
     title: 'Record the cough',
     guidance:

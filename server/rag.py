@@ -1,0 +1,356 @@
+"""
+"Ask WHO Assistant" - retrieval-augmented answering over the WHO handbook.
+
+THE RULE
+--------
+Answers come only from the WHO Operational Handbook on Tuberculosis, Module 5.
+Nothing else. If the retrieved passages do not contain the answer, the assistant
+says so and stops rather than filling the gap from the model's own memory:
+
+    "I cannot find this in the WHO handbook - please refer to a clinician."
+
+Two separate guards enforce that, because one is not enough:
+
+1. Before the model is called at all, retrieval similarity is checked against
+   MIN_SIMILARITY. Nothing relevant means an immediate refusal and no API call -
+   a model given weak context is a model invited to improvise.
+2. The system prompt instructs the model to emit that exact sentence when the
+   passages fall short, and the reply is checked for it afterwards.
+
+Every answer ships with the page numbers it came from, so the health worker can
+open the handbook and check.
+
+WHY NOT CHROMADB
+----------------
+ChromaDB pulls opentelemetry, which requires protobuf >= 5. TensorFlow 2.10 -
+which runs the chest X-ray model - requires protobuf < 3.20. The two cannot
+coexist in one environment, and the X-ray model is the more important of the
+two. So retrieval uses a small local vector store instead: embeddings from
+all-MiniLM-L6-v2 running on onnxruntime, cosine similarity over a numpy matrix.
+For a 264-page handbook that is a few hundred kilobytes and a millisecond of
+search - a vector database would be scaffolding around a numpy dot product.
+
+WHY GROQ, AND WHAT IT COSTS
+---------------------------
+Groq's free tier is persistent and needs no card. The alternative considered was
+Alibaba Model Studio, whose free quota expires 90 days after activation - fine
+today, dead by the time anyone reads the repository.
+
+This is the only part of Saans that needs the internet. Screening, scoring, the
+X-ray model and the cough analyser all run locally. When there is no key or no
+connection, this feature reports itself unavailable and the rest of the app is
+unaffected.
+"""
+
+import json
+import os
+import re
+import urllib.error
+import urllib.request
+
+import numpy as np
+
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+HANDBOOK = os.environ.get(
+    "SAANS_HANDBOOK_PDF", os.path.join(_ROOT, "books", "WHO Operational Handbook PDF.pdf")
+)
+INDEX_PATH = os.environ.get(
+    "SAANS_WHO_INDEX", os.path.join(_ROOT, "backend", "models", "who_index.npz")
+)
+EMBED_DIR = os.environ.get(
+    "SAANS_EMBED_MODEL", os.path.join(_ROOT, "backend", "models", "embedding")
+)
+EMBED_REPO = "sentence-transformers/all-MiniLM-L6-v2"
+
+# Chunking. Small enough that a retrieved passage is mostly on-topic, with an
+# overlap so a sentence spanning a boundary is not lost to both chunks.
+CHUNK_CHARS = 900
+CHUNK_OVERLAP = 150
+MIN_CHUNK_CHARS = 120
+
+TOP_K = 4
+MIN_SIMILARITY = 0.25     # below this, refuse without calling the model
+
+REFUSAL = "I cannot find this in the WHO handbook - please refer to a clinician."
+
+GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+GROQ_TIMEOUT = 30
+
+SYSTEM_PROMPT = f"""You answer questions for a community health worker screening \
+children under five for tuberculosis in a rural clinic.
+
+You may use ONLY the numbered passages from the WHO Operational Handbook on \
+Tuberculosis, Module 5, that are given to you. You have no other source.
+
+Rules:
+- If the passages do not contain the answer, reply with exactly this sentence \
+and nothing else: "{REFUSAL}"
+- Never use knowledge from outside the passages. Never guess a dose, a duration \
+or a threshold that is not written there.
+- Answer in plain, simple English. Short sentences. A health worker, not a \
+doctor, is reading it.
+- Keep it under 120 words.
+- Do not add a disclaimer; the screen already shows one.
+"""
+
+
+# --------------------------------------------------------------------------
+# Embedding - MiniLM on onnxruntime, no torch
+# --------------------------------------------------------------------------
+
+_session = None
+_tokenizer = None
+
+
+def _ensure_embedder():
+    """Load the ONNX encoder, downloading it once if it is not on disk."""
+    global _session, _tokenizer
+    if _session is not None:
+        return _session, _tokenizer
+
+    import onnxruntime
+    from tokenizers import Tokenizer
+
+    model_path = os.path.join(EMBED_DIR, "onnx", "model.onnx")
+    tok_path = os.path.join(EMBED_DIR, "tokenizer.json")
+    if not (os.path.exists(model_path) and os.path.exists(tok_path)):
+        from huggingface_hub import hf_hub_download
+
+        os.makedirs(EMBED_DIR, exist_ok=True)
+        for name in ("onnx/model.onnx", "tokenizer.json"):
+            hf_hub_download(repo_id=EMBED_REPO, filename=name, local_dir=EMBED_DIR)
+
+    _session = onnxruntime.InferenceSession(model_path, providers=["CPUExecutionProvider"])
+    _tokenizer = Tokenizer.from_file(tok_path)
+    _tokenizer.enable_truncation(max_length=256)
+    _tokenizer.enable_padding()
+    return _session, _tokenizer
+
+
+def embed(texts):
+    """Mean-pooled, L2-normalised sentence embeddings. Returns (n, 384) float32."""
+    session, tokenizer = _ensure_embedder()
+    encoded = tokenizer.encode_batch(list(texts))
+
+    ids = np.array([e.ids for e in encoded], dtype=np.int64)
+    mask = np.array([e.attention_mask for e in encoded], dtype=np.int64)
+    feed = {"input_ids": ids, "attention_mask": mask}
+    if any(i.name == "token_type_ids" for i in session.get_inputs()):
+        feed["token_type_ids"] = np.zeros_like(ids)
+
+    hidden = session.run(None, feed)[0]                    # (n, seq, 384)
+    m = mask[..., None].astype(np.float32)
+    pooled = (hidden * m).sum(axis=1) / np.maximum(m.sum(axis=1), 1e-9)
+    norms = np.linalg.norm(pooled, axis=1, keepdims=True)
+    return (pooled / np.maximum(norms, 1e-9)).astype(np.float32)
+
+
+# --------------------------------------------------------------------------
+# Chunking the handbook
+# --------------------------------------------------------------------------
+
+# At least one dot is required: handbook sections are "4.2", "5.2.4", "7.1.5".
+# Allowing a bare number matched numbered list items instead - "4 Check
+# injection site:" was being reported as the section for a dosing question.
+SECTION_RE = re.compile(r"(?m)^\s*(\d+(?:\.\d+){1,3})\.?\s+([A-Z][^\n]{4,80})$")
+
+
+def chunk_handbook(pdf_path=None):
+    """
+    PDF -> list of {text, page, section}.
+
+    Page numbers are kept so every answer can point at somewhere the health
+    worker can actually turn to, and the nearest numbered heading is recorded as
+    the section label.
+    """
+    from pypdf import PdfReader
+
+    reader = PdfReader(pdf_path or HANDBOOK)
+    chunks = []
+    section = None
+    section_page = 0
+    # A heading carries forward onto the pages that follow it, but not forever.
+    # Past this many pages the label is stale - annex pages were inheriting
+    # "7.6.3 Nutritional care" from a section that ended long before. The page
+    # number is the citation that matters; a wrong section is worse than none.
+    SECTION_CARRY_PAGES = 5
+
+    for page_index, page in enumerate(reader.pages, start=1):
+        try:
+            raw = page.extract_text() or ""
+        except Exception:
+            continue
+
+        found = SECTION_RE.findall(raw)
+        if found:
+            section = f"{found[0][0]} {found[0][1].strip()}"
+            section_page = page_index
+        elif page_index - section_page > SECTION_CARRY_PAGES:
+            section = None
+
+        text = re.sub(r"[ \t]+", " ", raw)
+        text = re.sub(r"\n{2,}", "\n", text).strip()
+        if len(text) < MIN_CHUNK_CHARS:
+            continue
+
+        start = 0
+        while start < len(text):
+            piece = text[start:start + CHUNK_CHARS].strip()
+            if len(piece) >= MIN_CHUNK_CHARS:
+                chunks.append({"text": piece, "page": page_index, "section": section})
+            if start + CHUNK_CHARS >= len(text):
+                break
+            start += CHUNK_CHARS - CHUNK_OVERLAP
+    return chunks
+
+
+def build_index(pdf_path=None, out_path=None):
+    """Chunk, embed and save. Run once; the result is a few hundred KB."""
+    out_path = out_path or INDEX_PATH
+    chunks = chunk_handbook(pdf_path)
+    if not chunks:
+        raise RuntimeError(f"No text extracted from {pdf_path or HANDBOOK}")
+
+    vectors = embed([c["text"] for c in chunks])
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    np.savez_compressed(
+        out_path,
+        vectors=vectors,
+        texts=np.array([c["text"] for c in chunks], dtype=object),
+        pages=np.array([c["page"] for c in chunks], dtype=np.int32),
+        sections=np.array([c["section"] or "" for c in chunks], dtype=object),
+    )
+    return len(chunks), out_path
+
+
+_index = None
+
+
+def load_index():
+    global _index
+    if _index is None and os.path.exists(INDEX_PATH):
+        data = np.load(INDEX_PATH, allow_pickle=True)
+        _index = {
+            "vectors": data["vectors"],
+            "texts": data["texts"],
+            "pages": data["pages"],
+            "sections": data["sections"],
+        }
+    return _index
+
+
+def retrieve(question, top_k=TOP_K):
+    """Most similar passages, best first. Cosine similarity - vectors are normalised."""
+    index = load_index()
+    if index is None:
+        raise RuntimeError(
+            f"No handbook index at {INDEX_PATH}. Build it with:\n"
+            "    python notebooks/build_who_index.py"
+        )
+    scores = index["vectors"] @ embed([question])[0]
+    order = np.argsort(scores)[::-1][:top_k]
+    return [
+        {
+            "text": str(index["texts"][i]),
+            "page": int(index["pages"][i]),
+            "section": str(index["sections"][i]) or None,
+            "score": round(float(scores[i]), 4),
+        }
+        for i in order
+    ]
+
+
+# --------------------------------------------------------------------------
+# Answering
+# --------------------------------------------------------------------------
+
+def groq_available():
+    return bool(os.environ.get("GROQ_API_KEY"))
+
+
+def _call_groq(question, passages):
+    context = "\n\n".join(
+        f"[{n}] (page {p['page']}"
+        + (f", section {p['section']}" if p["section"] else "")
+        + f")\n{p['text']}"
+        for n, p in enumerate(passages, start=1)
+    )
+    body = json.dumps({
+        "model": GROQ_MODEL,
+        "temperature": 0,          # a clinical lookup should not be creative
+        "max_tokens": 400,
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": f"Passages:\n{context}\n\nQuestion: {question}"},
+        ],
+    }).encode("utf-8")
+
+    request = urllib.request.Request(
+        GROQ_URL,
+        data=body,
+        headers={
+            "Authorization": f"Bearer {os.environ['GROQ_API_KEY']}",
+            "Content-Type": "application/json",
+        },
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=GROQ_TIMEOUT) as response:
+            payload = json.loads(response.read())
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", "replace")[:300]
+        # Groq's own message is passed through: it names the problem exactly,
+        # usually a retired model id or a bad key.
+        raise RuntimeError(f"Groq returned {exc.code}: {detail}")
+    except urllib.error.URLError as exc:
+        raise RuntimeError(f"Could not reach Groq (offline?): {exc.reason}")
+    return payload["choices"][0]["message"]["content"].strip()
+
+
+def ask(question: str) -> dict:
+    """
+    Question in, handbook-grounded answer out.
+
+    Returns answer, the passages it rests on, and whether it refused.
+    """
+    question = (question or "").strip()
+    if not question:
+        raise ValueError("Empty question.")
+
+    passages = retrieve(question)
+    best = passages[0]["score"] if passages else 0.0
+
+    # Guard 1: nothing relevant retrieved. Refuse before spending a call - a
+    # model handed weak context is a model invited to fill the gap itself.
+    if not passages or best < MIN_SIMILARITY:
+        return {
+            "answer": REFUSAL,
+            "refused": True,
+            "reason": "no relevant passage in the handbook",
+            "best_similarity": round(float(best), 4),
+            "sources": [],
+            "model": None,
+        }
+
+    if not groq_available():
+        raise RuntimeError(
+            "GROQ_API_KEY is not set. Put it in a .env file at the project root:\n"
+            "    GROQ_API_KEY=gsk_your_key_here"
+        )
+
+    answer = _call_groq(question, passages)
+
+    # Guard 2: the model may refuse on its own; report that as a refusal rather
+    # than dressing it up as an answer.
+    refused = REFUSAL.lower().rstrip(".") in answer.lower()
+
+    return {
+        "answer": answer,
+        "refused": refused,
+        "best_similarity": round(float(best), 4),
+        "sources": [] if refused else [
+            {"page": p["page"], "section": p["section"], "score": p["score"]}
+            for p in passages
+        ],
+        "model": GROQ_MODEL,
+    }

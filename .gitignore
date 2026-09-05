@@ -33,3 +33,7 @@ notebooks/*.png
 saans_data/
 notebooks/*.json
 backend/models/*.joblib
+
+# MiniLM sentence encoder for the WHO assistant (~90 MB). Downloads itself on
+# first use; the index it produces (who_index.npz) is small and is committed.
+backend/models/embedding/

@@ -1,10 +1,35 @@
-"""Saans vision API. Run with: uvicorn server.app:app --port 8000 --reload"""
+"""Saans API. Run with: uvicorn server.app:app --port 8000 --reload"""
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+import os
+
+from fastapi import Body, FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
+from . import rag
 from .audio import analyze as analyze_cough
 from .vision import DEMO_MODE, analyze
+
+
+def _load_dotenv():
+    """
+    Read .env at the project root into the environment.
+
+    Ten lines rather than a dependency, and it never overwrites a variable that
+    is already set, so a real environment variable still wins over the file.
+    """
+    path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
+    if not os.path.exists(path):
+        return
+    with open(path, encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            os.environ.setdefault(key.strip(), value.strip().strip("\"'"))
+
+
+_load_dotenv()
 
 MAX_UPLOAD_BYTES = 12 * 1024 * 1024
 # 10 s of 16 kHz 16-bit mono PCM is ~320 KB; the ceiling leaves room for a
@@ -67,3 +92,44 @@ async def audio_cough(audio: UploadFile = File(...)):
         raise HTTPException(status_code=415, detail=str(exc))
     except Exception as exc:
         raise HTTPException(status_code=422, detail=f"Could not analyze audio: {exc}")
+
+
+# --------------------------------------------------------------------------
+# Ask WHO Assistant - answers grounded in the handbook, or no answer at all
+# --------------------------------------------------------------------------
+
+@app.get("/api/assistant/status")
+def assistant_status():
+    """
+    Lets the screen say why the assistant is unavailable instead of failing at
+    the first question. This is the only part of Saans that needs the internet.
+    """
+    index = rag.load_index()
+    return {
+        "index_ready": index is not None,
+        "chunks": 0 if index is None else int(len(index["texts"])),
+        "api_key_set": rag.groq_available(),
+        "model": rag.GROQ_MODEL,
+        "available": index is not None and rag.groq_available(),
+    }
+
+
+@app.post("/api/assistant/ask")
+def assistant_ask(question: str = Body(..., embed=True)):
+    """
+    Answer from the WHO handbook only, with the pages it came from.
+
+    Never contributes to the screening score - it is a reference lookup, not a
+    clinical decision.
+    """
+    if not question or not question.strip():
+        raise HTTPException(status_code=400, detail="Ask a question first.")
+    if len(question) > 500:
+        raise HTTPException(status_code=413, detail="Question is too long.")
+
+    try:
+        return rag.ask(question)
+    except RuntimeError as exc:      # no key, no index, or Groq unreachable
+        raise HTTPException(status_code=503, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Assistant failed: {exc}")

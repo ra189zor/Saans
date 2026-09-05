@@ -11,10 +11,10 @@ export default function ResultsScreen({
   highRisk,
   referralCode,
   heatmapOverlay,
+  onAskAssistant,
   onRestart,
 }) {
   const { t } = useI18n()
-  const [assistantNote, setAssistantNote] = useState(false)
 
   /* A positive mWRD/LF-LAM result, or a close/household contact, goes straight
      to treatment: no score is calculated, so no score or breakdown is shown. */
@@ -155,14 +155,6 @@ export default function ResultsScreen({
           {t('results.source')}
         </p>
 
-        {assistantNote && (
-          <p
-            aria-live="polite"
-            className="mt-4 text-sm leading-relaxed text-faint md:text-base"
-          >
-            {t('common.aiComingSoon')}
-          </p>
-        )}
       </main>
 
       <footer
@@ -170,7 +162,7 @@ export default function ResultsScreen({
       >
         <button
           type="button"
-          onClick={() => setAssistantNote(true)}
+          onClick={onAskAssistant}
           className="flex min-h-[4rem] w-full items-center justify-center rounded-xl border border-hairline bg-surface px-8 text-base font-semibold text-fg transition-colors duration-150 outline-none select-none hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 focus-visible:ring-offset-canvas active:bg-surface-hover md:min-h-[4.5rem] md:text-lg"
         >
           {t('results.askAssistant')}
