@@ -36,10 +36,11 @@ GUIDES = [
     ("8.png", "breathing-severe", None),
     ("4.png", "muac", None),
     ("16.png", "lymph-nodes", None),
-    # Two pictures for one field: the four-panel sequence is the technique
-    # (watch the chest rise and fall), the other names the task.
-    ("1.png", "respiratory-rate", None),
-    ("2.png", "respiratory-rate-detail", (0.0, 0.0, 0.565, 1.0)),
+    # 1.png is the only source with no title on it. It is the chest-indrawing
+    # sequence - the lower chest wall drawing in on the third panel - not a
+    # second picture of respiratory rate, which 2.png is titled for.
+    ("1.png", "chest-indrawing", None),
+    ("2.png", "respiratory-rate", (0.0, 0.0, 0.565, 1.0)),
 ]
 
 

@@ -20,13 +20,15 @@ import neckStiffness from '../assets/guides/neck-stiffness.webp'
 import breathingSevere from '../assets/guides/breathing-severe.webp'
 import muac from '../assets/guides/muac.webp'
 import lymphNodes from '../assets/guides/lymph-nodes.webp'
+import chestIndrawing from '../assets/guides/chest-indrawing.webp'
 import respiratoryRate from '../assets/guides/respiratory-rate.webp'
-import respiratoryRateDetail from '../assets/guides/respiratory-rate-detail.webp'
 
 /** Each entry is the pictures for one question, with its own alt-text key. */
 export const GUIDES = {
   // Danger signs, asked one at a time in triage.
   seizure: [{ src: seizure, alt: 'seizure' }],
+  // Key must match the danger sign id in dangerSigns.js.
+  indrawing: [{ src: chestIndrawing, alt: 'indrawing' }],
   stridor: [{ src: stridor, alt: 'stridor' }],
   dehydration: [{ src: dehydration, alt: 'dehydration' }],
   pallor: [{ src: pallor, alt: 'pallor' }],
@@ -40,11 +42,7 @@ export const GUIDES = {
 
   // Symptom matrix.
   lymphNodes: [{ src: lymphNodes, alt: 'lymphNodes' }],
-  // Technique first, then the picture that names the task.
-  respiratoryRate: [
-    { src: respiratoryRate, alt: 'respiratoryRate' },
-    { src: respiratoryRateDetail, alt: 'respiratoryRateDetail' },
-  ],
+  respiratoryRate: [{ src: respiratoryRate, alt: 'respiratoryRate' }],
 }
 
 export function hasGuide(key) {

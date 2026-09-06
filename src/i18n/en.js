@@ -81,10 +81,10 @@ export const en = {
       muac: 'A MUAC tape around a child’s upper arm reading in the yellow band, beside the three colour zones: red below 11.5 cm, yellow between 11.5 and 12.5 cm, and green at 12.5 cm or more.',
       lymphNodes:
         'Where to feel for swollen lymph nodes on a child — the sides of the neck, under the jaw, and behind the ears — with a comparison of a normal neck against one with a visible, firm, painless swelling.',
+      indrawing:
+        'A child lying down, in four steps: at rest, the chest lifting, then the wall of the lower chest drawing inwards below the ribs as the child breathes in, and back to rest.',
       respiratoryRate:
-        'A child lying down through one breath: the chest and stomach rise as the child breathes in, then fall as the child breathes out.',
-      respiratoryRateDetail:
-        'A child sitting calmly, with an arrow tracing the chest moving in and out, labelled one breath.',
+        'A child sitting calmly, with an arrow tracing the chest moving out and in — one breath, counted for a full minute.',
     },
   },
 

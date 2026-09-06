@@ -137,11 +137,12 @@ shared with `server/audio.py`, so training and serving cannot drift apart.
 
 A Lady Health Worker may meet stridor or a bulging fontanelle a handful of
 times a year. The question text alone assumes she already knows the sign, so
-nine questions carry a picture of what that sign looks like on a child:
+ten questions carry a picture of what that sign looks like on a child:
 
 | Question | Shows |
 | --- | --- |
 | Seizure or fit | Six examples — jerking, stiffening, eyes rolling up, unresponsiveness, frothing, loss of continence |
+| Chest pulling in when breathing | Four steps, the lower chest wall drawing in below the ribs |
 | Loud harsh noise while breathing calmly | Stridor present against a child breathing quietly |
 | Severe dehydration | The skin-pinch test with return times, and sunken eyes |
 | Severe palmar pallor | Severe, mild and healthy palms side by side |
@@ -149,7 +150,7 @@ nine questions carry a picture of what that sign looks like on a child:
 | Severe signs (breathing check) | Blue or purple lips against normal pink |
 | MUAC tape colour | A tape in place, and the three colour bands with their cut-offs |
 | Swollen lymph nodes | Where to feel — neck, jaw, behind the ears — and normal against abnormal |
-| Respiratory rate | One breath cycle, chest rising and falling |
+| Respiratory rate | One breath, chest moving out and in |
 
 Where a screen asks one question at a time the picture sits under it. On the
 symptom form, which is long, it is a "How to check" line instead. Both open the
