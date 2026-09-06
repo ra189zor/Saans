@@ -3,6 +3,7 @@ import Screen, { COLUMN } from '../components/Screen.jsx'
 import TopBar from '../components/TopBar.jsx'
 import BackLink from '../components/BackLink.jsx'
 import { useI18n } from '../i18n/index.jsx'
+import { describeFetchError, isConnectionError } from '../lib/network.js'
 
 /**
  * Camera capture with an upload fallback. Many field devices have no usable
@@ -108,7 +109,13 @@ export default function XrayScanScreen({
       onAnalyzed({ analysis, capturedDataUrl: capture.dataUrl })
     } catch (err) {
       setStatus('error')
-      setError(String(err.message || err))
+      // A connection failure gets its own message: "check the vision service"
+      // is the wrong advice when the problem is that there is no network.
+      setError(
+        isConnectionError(err)
+          ? describeFetchError(err, t)
+          : t('xrayScan.failed', { error: String(err.message || err) }),
+      )
     }
   }
 
@@ -168,7 +175,7 @@ alt={t('xrayScan.capturedAlt')}
             aria-live="polite"
             className="mt-4 rounded-xl border border-danger px-4 py-3 text-sm leading-relaxed text-fg md:text-base"
           >
-            {t('xrayScan.failed', { error })}
+            {error}
           </p>
         )}
 

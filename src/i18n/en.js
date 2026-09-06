@@ -14,6 +14,10 @@ export const en = {
     aiComingSoon: 'AI feature coming next',
     days: '{count} days',
     daysOne: '1 day',
+    offline:
+      'No internet connection. Screening and scoring still work — only the X-ray, cough and handbook features need a connection.',
+    serverUnreachable:
+      'Cannot reach the Saans service. Screening and scoring still work without it.',
   },
 
   topBar: {

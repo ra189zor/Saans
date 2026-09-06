@@ -9,11 +9,20 @@
     <meta name="theme-color" content="#0B0F0E" />
     <title>Saans — Protecting every breath</title>
 
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Sora:wght@500;600;700&family=Noto+Nastaliq+Urdu:wght@400;500;600&display=swap"
-      rel="stylesheet"
+    <!-- Fonts are self-hosted in public/fonts and declared in src/fonts.css.
+         They are deliberately not loaded from the Google CDN: with no network,
+         Android has no Nastaliq fallback and every Urdu screen would render in
+         a broken face. Regenerate with: python scripts/fetch_fonts.py -->
+
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" href="/icons/icon-512.png" type="image/png" sizes="512x512" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Saans" />
+    <meta
+      name="description"
+      content="Paediatric TB screening for community health workers, following the WHO Operational Handbook on Tuberculosis, Module 5."
     />
   </head>
   <body>

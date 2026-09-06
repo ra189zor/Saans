@@ -3,6 +3,7 @@ import Screen, { COLUMN } from '../components/Screen.jsx'
 import TopBar from '../components/TopBar.jsx'
 import BackLink from '../components/BackLink.jsx'
 import { useI18n } from '../i18n/index.jsx'
+import { describeFetchError } from '../lib/network.js'
 
 const SUGGESTIONS = ['startTreatment', 'fourMonth', 'malnutrition']
 
@@ -30,7 +31,15 @@ export default function AskWhoScreen({ onBack }) {
     fetch('/api/assistant/status')
       .then((r) => r.json())
       .then((s) => !cancelled && setStatus(s))
-      .catch(() => !cancelled && setStatus({ available: false, unreachable: true }))
+      .catch(
+        () =>
+          !cancelled &&
+          setStatus({
+            available: false,
+            unreachable: true,
+            offline: !navigator.onLine,
+          }),
+      )
     return () => {
       cancelled = true
     }
@@ -69,7 +78,7 @@ export default function AskWhoScreen({ onBack }) {
     } catch (err) {
       setMessages((prev) => [
         ...prev,
-        { role: 'error', text: String(err.message || err) },
+        { role: 'error', text: describeFetchError(err, t) },
       ])
     } finally {
       setPending(false)
@@ -99,11 +108,13 @@ export default function AskWhoScreen({ onBack }) {
             className="mt-6 rounded-xl border border-amber bg-surface p-5 md:p-6"
           >
             <p className="text-sm leading-relaxed text-fg md:text-base">
-              {status.unreachable
-                ? t('assistant.serverDown')
-                : !status.index_ready
-                  ? t('assistant.noIndex')
-                  : t('assistant.noKey')}
+              {status.offline
+                ? t('common.offline')
+                : status.unreachable
+                  ? t('assistant.serverDown')
+                  : !status.index_ready
+                    ? t('assistant.noIndex')
+                    : t('assistant.noKey')}
             </p>
           </div>
         )}

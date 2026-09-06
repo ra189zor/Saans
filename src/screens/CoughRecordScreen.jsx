@@ -3,6 +3,7 @@ import Screen, { COLUMN } from '../components/Screen.jsx'
 import TopBar from '../components/TopBar.jsx'
 import BackLink from '../components/BackLink.jsx'
 import { useI18n } from '../i18n/index.jsx'
+import { describeFetchError } from '../lib/network.js'
 
 const RECORD_SECONDS = 10
 const TARGET_SAMPLE_RATE = 16000
@@ -166,7 +167,7 @@ export default function CoughRecordScreen({ onDone, onBack }) {
       setPhase('done')
     } catch (err) {
       setPhase('error')
-      setError(String(err.message || err))
+      setError(describeFetchError(err, t))
     }
   }
 
