@@ -7,21 +7,25 @@ export default function TopBar() {
     <header className="border-b border-hairline">
       <div className="mx-auto flex w-full max-w-md items-center justify-between px-6 py-4 md:max-w-xl md:px-10 md:py-5">
         <div className="flex items-baseline gap-2.5">
-          {/* The wordmark is a name, not copy: it stays Latin in both languages,
-              paired with the Urdu spelling. */}
+          {/* The wordmark is a name, not copy: it stays Latin in both
+              languages. The Urdu spelling is shown alongside it only in the
+              Urdu UI — on the English screens it is just a second language
+              the reader did not ask for. */}
           <span
             dir="ltr"
             className="font-display text-base font-semibold tracking-[-0.01em] text-fg md:text-lg"
           >
             {t('topBar.brand')}
           </span>
-          <span
-            dir="rtl"
-            lang="ur"
-            className="font-urdu text-sm text-muted md:text-base"
-          >
-            سانس
-          </span>
+          {lang === 'ur' && (
+            <span
+              dir="rtl"
+              lang="ur"
+              className="font-urdu text-sm text-muted md:text-base"
+            >
+              سانس
+            </span>
+          )}
         </div>
 
         <div className="flex items-center gap-1">

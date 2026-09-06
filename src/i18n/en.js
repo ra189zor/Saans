@@ -14,6 +14,8 @@ export const en = {
     aiComingSoon: 'AI feature coming next',
     days: '{count} days',
     daysOne: '1 day',
+    // Urdu uses the Arabic comma (U+060C), which leans the other way.
+    listSeparator: ', ',
     offline:
       'No internet connection. Screening and scoring still work — only the X-ray, cough and handbook features need a connection.',
     serverUnreachable:

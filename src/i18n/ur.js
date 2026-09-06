@@ -21,6 +21,7 @@ export const ur = {
     aiComingSoon: 'یہ سہولت جلد آ رہی ہے',
     days: '{count} دن',
     daysOne: '1 دن',
+    listSeparator: '، ',
     offline:
       'انٹرنیٹ نہیں ہے۔ جانچ اور اسکور پھر بھی چلتے ہیں — صرف ایکس رے، کھانسی اور کتاب والی سہولت کے لیے انٹرنیٹ چاہیے۔',
     serverUnreachable:

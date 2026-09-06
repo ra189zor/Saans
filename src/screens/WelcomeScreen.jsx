@@ -4,7 +4,7 @@ import TopBar from '../components/TopBar.jsx'
 import { useI18n } from '../i18n/index.jsx'
 
 export default function WelcomeScreen({ onStart }) {
-  const { t } = useI18n()
+  const { lang, t } = useI18n()
   return (
     <Screen>
       <TopBar />
@@ -16,13 +16,17 @@ export default function WelcomeScreen({ onStart }) {
           Saans
         </h1>
 
-        <p
-          dir="rtl"
-          lang="ur"
-          className="font-urdu mt-2 text-[2.25rem] font-medium text-fg/80 md:mt-4 md:text-[3.5rem]"
-        >
-          سانس
-        </p>
+        {/* The Urdu spelling belongs to the Urdu UI. Showing it under the
+            English wordmark makes the English screen bilingual for no reason. */}
+        {lang === 'ur' && (
+          <p
+            dir="rtl"
+            lang="ur"
+            className="font-urdu mt-2 text-[2.25rem] font-medium text-fg/80 md:mt-4 md:text-[3.5rem]"
+          >
+            سانس
+          </p>
+        )}
 
         <Divider parts={[t('welcome.dividerLeft'), t('welcome.dividerRight')]} />
 

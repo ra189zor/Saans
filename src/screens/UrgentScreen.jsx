@@ -37,7 +37,9 @@ export default function UrgentScreen({
               {t('urgent.detected')}
             </p>
             <p className="mt-1.5 text-sm leading-relaxed text-fg md:text-base">
-              {signs.map((s) => t(`dangerSigns.${s.id}.label`)).join('، ')}
+              {signs
+                .map((s) => t(`dangerSigns.${s.id}.label`))
+                .join(t('common.listSeparator'))}
             </p>
           </div>
         )}
