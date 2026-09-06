@@ -211,6 +211,26 @@ def chunk_handbook(pdf_path=None):
     return chunks
 
 
+def embed_text(chunk):
+    """
+    What gets embedded: the section heading, then the text.
+
+    Splitting on a character count regularly separates a table from the
+    caption that says what it is. The first-line dosing table on page 118 is
+    the case that matters — "Table 5.3" and "Recommended dosages for first-line
+    TB medicines" fall at the end of one chunk, and the numbers underneath
+    start the next one, so that chunk reached the index as a bare list of drugs
+    and figures. It matched nothing a health worker would type.
+
+    The heading is already carried on every chunk as metadata. Embedding it
+    too gives a continuation chunk back the context its neighbour kept. The
+    stored text is unchanged, so nothing about what is displayed or cited
+    moves.
+    """
+    section = chunk.get("section")
+    return f"{section}\n{chunk['text']}" if section else chunk["text"]
+
+
 def build_index(pdf_path=None, out_path=None):
     """Chunk, embed and save. Run once; the result is a few hundred KB."""
     out_path = out_path or INDEX_PATH
@@ -218,7 +238,7 @@ def build_index(pdf_path=None, out_path=None):
     if not chunks:
         raise RuntimeError(f"No text extracted from {pdf_path or HANDBOOK}")
 
-    vectors = embed([c["text"] for c in chunks])
+    vectors = embed([embed_text(c) for c in chunks])
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     np.savez_compressed(
         out_path,
@@ -282,36 +302,75 @@ def _call_groq(question, passages):
         + f")\n{p['text']}"
         for n, p in enumerate(passages, start=1)
     )
-    body = json.dumps({
+    payload = {
         "model": GROQ_MODEL,
         "temperature": 0,          # a clinical lookup should not be creative
-        "max_tokens": 400,
+        # gpt-oss reasons before it answers, and those tokens are spent from
+        # the same allowance as the answer. At 400 the longer questions used
+        # the whole budget thinking and came back with finish_reason "length"
+        # and an empty string - a blank answer bubble on a clinical screen.
+        # Room for both, and the shortest reasoning the model offers.
+        "max_tokens": 1200,
+        "reasoning_effort": "low",
         "messages": [
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": f"Passages:\n{context}\n\nQuestion: {question}"},
         ],
-    }).encode("utf-8")
+    }
 
-    request = urllib.request.Request(
-        GROQ_URL,
-        data=body,
-        headers={
-            "Authorization": f"Bearer {os.environ['GROQ_API_KEY']}",
-            "Content-Type": "application/json",
-            "User-Agent": USER_AGENT,
-        },
-    )
-    try:
+    data = _post_groq(payload)
+    choice = data["choices"][0]
+    answer = (choice["message"].get("content") or "").strip()
+
+    # An empty answer is a failure, not an answer. Say so rather than showing
+    # the health worker an empty bubble that looks like the handbook is silent.
+    if not answer:
+        raise RuntimeError(
+            f"Groq returned no answer (finish_reason="
+            f"{choice.get('finish_reason')}). Raise max_tokens in server/rag.py."
+        )
+    return answer
+
+
+def _post_groq(payload):
+    """
+    One chat completion, with the retry that keeps the model swappable.
+
+    `reasoning_effort` is rejected outright by models that do not reason, so
+    sending it unconditionally would turn changing GROQ_MODEL into a footgun.
+    It is sent, and dropped on the one error that says it is unsupported.
+    """
+    def send(body):
+        request = urllib.request.Request(
+            GROQ_URL,
+            data=json.dumps(body).encode("utf-8"),
+            headers={
+                "Authorization": f"Bearer {os.environ['GROQ_API_KEY']}",
+                "Content-Type": "application/json",
+                "User-Agent": USER_AGENT,
+            },
+        )
         with urllib.request.urlopen(request, timeout=GROQ_TIMEOUT) as response:
-            payload = json.loads(response.read())
+            return json.loads(response.read())
+
+    try:
+        return send(payload)
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", "replace")[:300]
+        if "reasoning_effort" in detail:
+            retry = {k: v for k, v in payload.items() if k != "reasoning_effort"}
+            try:
+                return send(retry)
+            except urllib.error.HTTPError as second:
+                detail = second.read().decode("utf-8", "replace")[:300]
+                raise RuntimeError(f"Groq returned {second.code}: {detail}")
+            except urllib.error.URLError as second:
+                raise RuntimeError(f"Could not reach Groq (offline?): {second.reason}")
         # Groq's own message is passed through: it names the problem exactly,
         # usually a retired model id or a bad key.
         raise RuntimeError(f"Groq returned {exc.code}: {detail}")
     except urllib.error.URLError as exc:
         raise RuntimeError(f"Could not reach Groq (offline?): {exc.reason}")
-    return payload["choices"][0]["message"]["content"].strip()
 
 
 def ask(question: str) -> dict:

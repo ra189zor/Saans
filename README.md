@@ -93,6 +93,12 @@ worth performing.
 rather than ten seconds of room noise — worth knowing before that clip is
 stored as training data, and worth knowing for the worker holding the tablet.
 
+Because collecting is the point, the recording is offered on the way to the
+result on **both** scoring paths — after the chest X-ray is confirmed, and after
+Calculate Risk Score when there is no X-ray. Once the score is on screen the
+session is over and the recording never gets made. It is skippable in one tap: a
+tablet with no microphone must not strand a worker one step short of the result.
+
 So the honest summary is that this feature is infrastructure for a later
 version, not a diagnostic aid in this one. It is listed that way in
 [Limitations](#limitations) and on the roadmap, and it should be described that
@@ -419,10 +425,19 @@ ages 0–4; COUGHVID contributes 88 such recordings in total. It was measured on
 children rather than assumed to work — see the table above — but 59 under-fives
 is a small test set, and COUGHVID's ages are self-reported on a web form.
 
-**The assistant can only be as good as its retrieval.** If the right passage is
-not among the four retrieved, the answer will be a refusal rather than a wrong
-answer — but a refusal on a question the handbook does answer is still a failure.
-It is also the one feature that needs the internet.
+**The assistant cannot answer dosing questions, and this is measured.** Ask it
+"what is the TB dose for a 12 kg child?" and it refuses. The answer is in the
+index — chunk 441, page 118, isoniazid 10 mg/kg, range 7–15 — but it ranks
+**34th** for that question. A table reduced to drug names and figures carries
+almost no meaning for a sentence-embedding model, and keyword search does worse
+(rank 62), so no retrieval setting reaches it. Dosing is the most likely thing a
+health worker would ask, which makes this the assistant's most serious gap. It
+fails safe — a refusal, never an invented dose — but it fails.
+
+**Retrieval sets the ceiling generally.** If the right passage is not among the
+four retrieved, the answer is a refusal rather than a wrong one; a refusal on a
+question the handbook does answer is still a failure. It is also the one feature
+that needs the internet.
 
 **The test set shares sources with training.** It is a held-out split, not external validation. Performance on films from a hospital the model has never seen is unknown.
 

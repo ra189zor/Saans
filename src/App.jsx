@@ -191,7 +191,12 @@ export default function App() {
           onCalculate={(result) => {
             setScore(result)
             setReferralCode(makeReferralCode())
-            setScreen('results')
+            /* Offered here too, not only after an X-ray. Algorithm B is the
+               path for clinics with no X-ray at all, so it is the one most
+               children take — collecting the audio only on the X-ray path
+               would miss most of them. Skippable, and never scored. */
+            setScreen(cough ? 'results' : 'coughRecord')
+            if (!cough) setCoughReturn('results')
           }}
         />
       )
@@ -205,8 +210,12 @@ export default function App() {
             setScreen(coughReturn)
           }}
           onSkip={() => setScreen(coughReturn)}
+          /* Back goes where the worker came from: the X-ray confirmation if
+             one was read, otherwise the symptom form. */
           onBack={() =>
-            setScreen(coughReturn === 'results' ? 'xrayFeatures' : 'symptoms')
+            setScreen(
+              coughReturn === 'results' && xray ? 'xrayFeatures' : 'symptoms',
+            )
           }
         />
       )
