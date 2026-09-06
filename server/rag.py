@@ -74,8 +74,14 @@ MIN_SIMILARITY = 0.25     # below this, refuse without calling the model
 REFUSAL = "I cannot find this in the WHO handbook - please refer to a clinician."
 
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
-GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b")
 GROQ_TIMEOUT = 30
+
+# Groq sits behind Cloudflare, which rejects urllib's default
+# "Python-urllib/3.x" agent with 403 and Cloudflare error 1010 - a client
+# fingerprint block, not an authentication failure, and nothing to do with the
+# key. Any real agent string gets through. Without this every question fails.
+USER_AGENT = "saans/0.1 (+https://github.com/; paediatric TB screening)"
 
 SYSTEM_PROMPT = f"""You answer questions for a community health worker screening \
 children under five for tuberculosis in a rural clinic.
@@ -292,6 +298,7 @@ def _call_groq(question, passages):
         headers={
             "Authorization": f"Bearer {os.environ['GROQ_API_KEY']}",
             "Content-Type": "application/json",
+            "User-Agent": USER_AGENT,
         },
     )
     try:

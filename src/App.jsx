@@ -37,6 +37,9 @@ export default function App() {
   /* Acoustic hint only. It is never passed to scoreFindings() - the WHO
      cough criterion is the two-week history, not the recording. */
   const [cough, setCough] = useState(null)
+  /* Where the cough screen returns to. 'symptoms' when opened from the symptom
+     form, 'results' when it is the last step after a chest X-ray. */
+  const [coughReturn, setCoughReturn] = useState('symptoms')
   function startNewScreening() {
     setDetectedSigns([])
     setFastTrack(false)
@@ -181,7 +184,10 @@ export default function App() {
           symptoms={symptoms}
           onChange={(patch) => setSymptoms((prev) => ({ ...prev, ...patch }))}
           onScanXray={() => setScreen('xrayScan')}
-          onRecordCough={() => setScreen('coughRecord')}
+          onRecordCough={() => {
+            setCoughReturn('symptoms')
+            setScreen('coughRecord')
+          }}
           onCalculate={(result) => {
             setScore(result)
             setReferralCode(makeReferralCode())
@@ -193,11 +199,15 @@ export default function App() {
     case 'coughRecord':
       return (
         <CoughRecordScreen
+          lastStep={coughReturn === 'results'}
           onDone={(analysis) => {
             setCough(analysis)
-            setScreen('symptoms')
+            setScreen(coughReturn)
           }}
-          onBack={() => setScreen('symptoms')}
+          onSkip={() => setScreen(coughReturn)}
+          onBack={() =>
+            setScreen(coughReturn === 'results' ? 'xrayFeatures' : 'symptoms')
+          }
         />
       )
 
@@ -224,7 +234,15 @@ export default function App() {
               scoreFindings(findings, { algorithm: 'A', cxr: confirmedCxr })
             )
             setReferralCode(makeReferralCode())
-            setScreen('results')
+
+            /* Ask for the cough before showing the result, while the child is
+               still in front of the worker — once the score is on screen the
+               session is over and the recording never gets made. It does not
+               change the score (WHO scores cough by duration, not by sound);
+               it is the one chance to capture the audio. Already recorded, or
+               reached from the symptom screen, and this is skipped. */
+            setScreen(cough ? 'results' : 'coughRecord')
+            if (!cough) setCoughReturn('results')
           }}
           onBack={() => setScreen('xrayScan')}
         />

@@ -19,7 +19,14 @@ const TARGET_SAMPLE_RATE = 16000
  * The result is a hint for the health worker. It carries no weight in the WHO
  * score, which is what the caption on the result says.
  */
-export default function CoughRecordScreen({ onDone, onBack }) {
+/**
+ * `lastStep` is set when this screen is the final step before the result —
+ * which is how it is reached from the chest X-ray. It changes the closing
+ * button from "back to symptoms" to "see result", and offers a skip, because
+ * a tablet with no microphone or a refused permission must not be able to
+ * trap the worker one step short of the score.
+ */
+export default function CoughRecordScreen({ onDone, onBack, onSkip, lastStep = false }) {
   const { t } = useI18n()
 
   const streamRef = useRef(null)
@@ -236,7 +243,12 @@ export default function CoughRecordScreen({ onDone, onBack }) {
 
       <footer className={`${COLUMN} pt-4 pb-8 md:pb-12`}>
         {(phase === 'idle' || phase === 'error') && (
-          <PrimaryButton onClick={startRecording}>{t('coughRecord.start')}</PrimaryButton>
+          <div className="flex flex-col gap-3 md:gap-4">
+            <PrimaryButton onClick={startRecording}>{t('coughRecord.start')}</PrimaryButton>
+            {lastStep && onSkip && (
+              <SecondaryButton onClick={onSkip}>{t('coughRecord.skip')}</SecondaryButton>
+            )}
+          </div>
         )}
 
         {phase === 'recording' && (
@@ -253,7 +265,9 @@ export default function CoughRecordScreen({ onDone, onBack }) {
         {phase === 'done' && (
           <div className="grid grid-cols-2 gap-3 md:gap-4">
             <SecondaryButton onClick={startRecording}>{t('coughRecord.reRecord')}</SecondaryButton>
-            <PrimaryButton onClick={() => onDone(result)}>{t('coughRecord.back')}</PrimaryButton>
+            <PrimaryButton onClick={() => onDone(result)}>
+              {t(lastStep ? 'coughRecord.seeResult' : 'coughRecord.back')}
+            </PrimaryButton>
           </div>
         )}
       </footer>

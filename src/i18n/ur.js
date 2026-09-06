@@ -259,6 +259,8 @@ export const ur = {
     reRecord: 'دوبارہ ریکارڈ کریں',
     use: 'یہی ریکارڈنگ استعمال کریں',
     back: 'علامات پر واپس جائیں',
+    seeResult: 'نتیجہ دیکھیں',
+    skip: 'چھوڑ دیں — مائیک نہیں ہے',
     patternLabel: 'کھانسی کی قسم',
     characterLabel: 'آواز',
     coughsLabel: 'شمار کی گئی کھانسیاں',

@@ -253,6 +253,8 @@ export const en = {
     reRecord: 'Re-record',
     use: 'Use this recording',
     back: 'Back to symptoms',
+    seeResult: 'See result',
+    skip: 'Skip — no microphone',
     patternLabel: 'Cough pattern',
     characterLabel: 'Sound',
     coughsLabel: 'Coughs detected',
