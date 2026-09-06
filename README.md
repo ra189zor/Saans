@@ -184,9 +184,20 @@ health worker can type a question — "What is the TB dose for a 12 kg child?" �
 and get an answer drawn only from the WHO handbook, with the page it came from
 shown underneath.
 
-Retrieval is local. The handbook is split into 1,038 chunks, embedded with
+Retrieval is local. The handbook is split into 1,055 chunks, embedded with
 all-MiniLM-L6-v2 running on onnxruntime, and searched by cosine similarity over a
 numpy matrix. Only writing the final answer calls out to a hosted model (Groq).
+
+Two details of the chunking exist because of the dosing tables. Pages are cut
+where a table caption begins, so "Table 5.5. Dosing table for first-line
+medicines" opens the chunk its rows are in instead of being stranded at the end
+of the previous one — and that caption is carried onto every chunk of the table
+and sent to the model with the passage, because a row reading `12–<16 3 3 3`
+means nothing without it. And each chunk is labelled with the heading it
+actually sits under rather than the first heading on its page, which had been
+filing the first-line dosing table under the meningitis section below it.
+Together these moved that table from 34th to 1st for "how many tablets for a
+child weighing 12 kg?".
 
 ### It refuses rather than guesses
 
@@ -370,7 +381,9 @@ decodes it through a bundled static ffmpeg, holds every child out of training,
 and scores the result by age band. A few minutes on CPU once the audio is local.
 
 **Handbook index** — `python notebooks/build_who_index.py`. Chunks the PDF and
-embeds 1,038 passages. Under a minute after the encoder downloads.
+embeds 1,055 passages, splitting each page where a table caption begins so the
+rows keep the line that says what they are. Under a minute after the encoder
+downloads.
 
 ## Layout
 
@@ -425,14 +438,15 @@ ages 0–4; COUGHVID contributes 88 such recordings in total. It was measured on
 children rather than assumed to work — see the table above — but 59 under-fives
 is a small test set, and COUGHVID's ages are self-reported on a web form.
 
-**The assistant cannot answer dosing questions, and this is measured.** Ask it
-"what is the TB dose for a 12 kg child?" and it refuses. The answer is in the
-index — chunk 441, page 118, isoniazid 10 mg/kg, range 7–15 — but it ranks
-**34th** for that question. A table reduced to drug names and figures carries
-almost no meaning for a sentence-embedding model, and keyword search does worse
-(rank 62), so no retrieval setting reaches it. Dosing is the most likely thing a
-health worker would ask, which makes this the assistant's most serious gap. It
-fails safe — a refusal, never an invented dose — but it fails.
+**The assistant answers dosing questions only in the handbook's own words.**
+"How many tablets for a child weighing 12 kg?" returns "3 tablets" and cites
+page 120, which is Table 5.5's 12–<16 kg band. Phrase the same question as
+"what is the TB dose for a 12 kg child?" and it refuses: the handbook says
+*number of tablets by weight band*, not *dose*, and a sentence-embedding model
+this small does not bridge that. The right passage ranks 1st for the first
+phrasing and 27th for the second. Ask in the handbook's vocabulary — tablets,
+weight band, regimen — and it finds things; ask in clinical shorthand and it may
+refuse. It fails safe either way: a refusal, never an invented dose.
 
 **Retrieval sets the ceiling generally.** If the right passage is not among the
 four retrieved, the answer is a refusal rather than a wrong one; a refusal on a

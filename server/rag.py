@@ -161,6 +161,15 @@ def embed(texts):
 # injection site:" was being reported as the section for a dosing question.
 SECTION_RE = re.compile(r"(?m)^\s*(\d+(?:\.\d+){1,3})\.?\s+([A-Z][^\n]{4,80})$")
 
+# Captions of tables and annexes. The dot after the number is what separates a
+# caption from a mention of one: "Table 5.5. Dosing table for first-line
+# medicines" opens the table, "Table 5.5 shows the recommended dosages" is
+# prose about it, and splitting on the second would cut a sentence in half.
+# pypdf renders the ligature in "Table" as "T able" on some pages, hence \s?.
+CAPTION_RE = re.compile(
+    r"(?m)^\s*((?:T\s?able|Annex)\s+\d+(?:\.\d+)?\.\s+\S[^\n]{3,110})"
+)
+
 
 def chunk_handbook(pdf_path=None):
     """
@@ -188,32 +197,90 @@ def chunk_handbook(pdf_path=None):
         except Exception:
             continue
 
-        found = SECTION_RE.findall(raw)
-        if found:
-            section = f"{found[0][0]} {found[0][1].strip()}"
-            section_page = page_index
-        elif page_index - section_page > SECTION_CARRY_PAGES:
-            section = None
-
         text = re.sub(r"[ \t]+", " ", raw)
         text = re.sub(r"\n{2,}", "\n", text).strip()
         if len(text) < MIN_CHUNK_CHARS:
             continue
 
-        start = 0
-        while start < len(text):
-            piece = text[start:start + CHUNK_CHARS].strip()
-            if len(piece) >= MIN_CHUNK_CHARS:
-                chunks.append({"text": piece, "page": page_index, "section": section})
-            if start + CHUNK_CHARS >= len(text):
-                break
-            start += CHUNK_CHARS - CHUNK_OVERLAP
+        # Headings with their positions, so a chunk is labelled with the
+        # heading it actually sits under. Taking the page's first heading and
+        # applying it to the whole page mislabelled everything above it: the
+        # first-line dosing table on page 120 was filed under the meningitis
+        # section that begins below it, which is wrong in the citation the
+        # health worker reads as well as in the vector.
+        headings = [
+            (m.start(), f"{m.group(1)} {m.group(2).strip()}")
+            for m in SECTION_RE.finditer(text)
+        ]
+        if headings:
+            section_page = page_index
+        elif page_index - section_page > SECTION_CARRY_PAGES:
+            section = None
+
+        def section_at(offset, carried=section):
+            """The last heading at or before this offset, else the carried one."""
+            label = carried
+            for position, heading in headings:
+                if position > offset:
+                    break
+                label = heading
+            return label
+
+        for caption, segment, segment_offset in split_at_captions(text):
+            start = 0
+            while start < len(segment):
+                piece = segment[start:start + CHUNK_CHARS].strip()
+                # A captioned fragment is kept even when short. Table bodies
+                # are terse - "12–<16 3 3 3" is a whole row - and dropping
+                # them for length is how the dosing tables went missing.
+                if len(piece) >= MIN_CHUNK_CHARS or (caption and piece):
+                    chunks.append({
+                        "text": piece,
+                        "page": page_index,
+                        "section": section_at(segment_offset + start),
+                        "caption": caption,
+                    })
+                if start + CHUNK_CHARS >= len(segment):
+                    break
+                start += CHUNK_CHARS - CHUNK_OVERLAP
+
+        # Carry the page's last heading onto the pages that follow.
+        if headings:
+            section = headings[-1][1]
     return chunks
+
+
+def split_at_captions(text):
+    """
+    Cut a page where a table or annex caption starts, and label the pieces.
+
+    Slicing purely on a character count severs a table from the line that says
+    what it is. Table 5.5 on page 120 is the case that made this necessary: the
+    caption fell at the end of one chunk and the rows began the next, so the
+    rows reached the index as "4–<8 1 1 1, 8–<12 2 2 2" with nothing to say
+    they were doses. A caption now opens its own segment and every chunk of
+    that segment carries it.
+
+    Returns (caption or None, segment, offset of the segment in `text`).
+    """
+    matches = list(CAPTION_RE.finditer(text))
+    if not matches:
+        return [(None, text, 0)]
+
+    segments = []
+    if matches[0].start() > 0:
+        segments.append((None, text[:matches[0].start()].strip(), 0))
+    for i, match in enumerate(matches):
+        end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+        segments.append(
+            (match.group(1).strip(), text[match.start():end].strip(), match.start())
+        )
+    return [(c, s, o) for c, s, o in segments if s]
 
 
 def embed_text(chunk):
     """
-    What gets embedded: the section heading, then the text.
+    What gets embedded: the section heading and table caption, then the text.
 
     Splitting on a character count regularly separates a table from the
     caption that says what it is. The first-line dosing table on page 118 is
@@ -227,8 +294,14 @@ def embed_text(chunk):
     stored text is unchanged, so nothing about what is displayed or cited
     moves.
     """
-    section = chunk.get("section")
-    return f"{section}\n{chunk['text']}" if section else chunk["text"]
+    text = chunk["text"]
+    prefix = [chunk.get("section")]
+    # Not repeated when the chunk already opens with its caption — only the
+    # continuation rows need it put back.
+    caption = chunk.get("caption")
+    if caption and not text.startswith(caption[:40]):
+        prefix.append(caption)
+    return "\n".join([p for p in prefix if p] + [text])
 
 
 def build_index(pdf_path=None, out_path=None):
@@ -246,6 +319,7 @@ def build_index(pdf_path=None, out_path=None):
         texts=np.array([c["text"] for c in chunks], dtype=object),
         pages=np.array([c["page"] for c in chunks], dtype=np.int32),
         sections=np.array([c["section"] or "" for c in chunks], dtype=object),
+        captions=np.array([c.get("caption") or "" for c in chunks], dtype=object),
     )
     return len(chunks), out_path
 
@@ -262,6 +336,8 @@ def load_index():
             "texts": data["texts"],
             "pages": data["pages"],
             "sections": data["sections"],
+            # Absent from indexes built before captions were tracked.
+            "captions": data["captions"] if "captions" in data.files else None,
         }
     return _index
 
@@ -276,11 +352,15 @@ def retrieve(question, top_k=TOP_K):
         )
     scores = index["vectors"] @ embed([question])[0]
     order = np.argsort(scores)[::-1][:top_k]
+    captions = index.get("captions")
     return [
         {
             "text": str(index["texts"][i]),
             "page": int(index["pages"][i]),
             "section": str(index["sections"][i]) or None,
+            # Passed to the model with the passage: a row of numbers means
+            # nothing without the caption that says what the numbers are.
+            "caption": (str(captions[i]) or None) if captions is not None else None,
             "score": round(float(scores[i]), 4),
         }
         for i in order
@@ -299,7 +379,11 @@ def _call_groq(question, passages):
     context = "\n\n".join(
         f"[{n}] (page {p['page']}"
         + (f", section {p['section']}" if p["section"] else "")
-        + f")\n{p['text']}"
+        + f")\n"
+        # The caption travels with the passage. Without it a retrieved table
+        # row reads as loose digits and the model cannot say what they are.
+        + (f"{p['caption']}\n" if p.get("caption") else "")
+        + p["text"]
         for n, p in enumerate(passages, start=1)
     )
     payload = {
