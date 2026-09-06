@@ -300,6 +300,31 @@ docker compose restart saans      # after changing .env
 docker compose up -d --build      # after changing code
 ```
 
+### Putting it on someone else's phone
+
+```bash
+docker compose --profile tunnel up -d
+docker compose logs tunnel | grep trycloudflare.com
+```
+
+That prints a public **https://** address. HTTPS is the reason this exists, not
+reachability: port forwarding already makes the server reachable, but a browser
+refuses to register a service worker or offer **Add to Home Screen** over plain
+`http`, so an installable app needs a certificate. This borrows Cloudflare's.
+
+The connection is outbound, so nothing new is opened on the router and it works
+behind CGNAT — which most Pakistani ISPs use, and which makes port forwarding a
+dead end for this. It reaches the container over the compose network, so
+`SAANS_PORT` is irrelevant to it.
+
+**The address changes every time the tunnel restarts.** Start it, take the
+address, and leave it running. Generate any QR code from the address you have on
+the day, not from one saved earlier.
+
+```bash
+docker compose --profile tunnel down    # stop just the tunnel
+```
+
 TensorFlow makes this image roughly 3 GB. That is the cost of serving the real
 X-ray model; `SAANS_DEMO_MODE=1` skips loading it but not installing it.
 

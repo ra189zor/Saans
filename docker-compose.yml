@@ -46,3 +46,29 @@ services:
       timeout: 5s
       retries: 3
       start_period: 180s
+
+  # A public HTTPS address, for putting the app on someone else's phone.
+  #
+  # Opt-in, because the app does not need it to run:
+  #     docker compose --profile tunnel up -d
+  #     docker compose logs tunnel | grep trycloudflare.com
+  #
+  # HTTPS is the point, not reachability. Port forwarding already makes the
+  # server reachable, but a browser will not register a service worker or offer
+  # "Add to Home Screen" over plain http, so an installable app needs a
+  # certificate. This borrows Cloudflare's.
+  #
+  # The connection is outbound, so nothing new is exposed on the router and it
+  # works behind CGNAT. It reaches the container over the compose network, so
+  # no host port is involved and SAANS_PORT does not affect it.
+  #
+  # One rule: the address is issued per run and changes whenever this restarts.
+  # Start it, take the address, and leave it alone until the demo is over.
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: saans-tunnel
+    profiles: ["tunnel"]
+    command: tunnel --no-autoupdate --url http://saans:8000
+    depends_on:
+      - saans
+    restart: unless-stopped
