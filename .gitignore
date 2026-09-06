@@ -25,7 +25,7 @@ kaggle.json
 # them with: python scripts/build_guides.py
 src/assets/*.png
 
-# trained model weights - too large for git, see backend/models/README.md
+# trained model weights - too large for git, see the Weights section in README.md
 backend/models/*.h5
 backend/models/*.pt
 server/weights/

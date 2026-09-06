@@ -55,7 +55,12 @@ The decision threshold is 0.71, chosen for at least 90% recall on the Shenzhen s
 
 The model outputs a single probability and a Grad-CAM heatmap showing which regions drove it. It suggests only "opacities" and never the other four findings, because it has one output and was never trained to tell one radiological feature from another. Enlarged lymph nodes carries 17 points on its own, above the treatment threshold, so the confirmation screen asks the health worker to check for it rather than pre-ticking a guess.
 
-Training code: [notebooks/train_xray_model_local.ipynb](notebooks/train_xray_model_local.ipynb). Metrics and per-source breakdown: [backend/models/saans_xray_densenet121.json](backend/models/saans_xray_densenet121.json).
+The served `.h5` is a **float32 rebuild** of the trained network. Training ran a
+mixed-float16 policy for GPU speed, but float16 is emulated on a CPU server and
+was measured ~22x slower there. Same weights, same predictions — rebuilding was
+checked against the full test set and changed no decisions.
+
+Training code: [notebooks/train_xray_model_local.ipynb](notebooks/train_xray_model_local.ipynb). Metrics and per-source breakdown: [backend/models/saans_xray_densenet121.json](backend/models/saans_xray_densenet121.json), which `server/vision.py` reads the decision threshold and Grad-CAM layer from — do not hand-edit it without re-running the numbers.
 
 ## The cough recording
 
@@ -265,9 +270,37 @@ curl http://localhost:8000/api/assistant/status
 
 If weights are present but TensorFlow is missing, the service refuses to start and says so, rather than failing later on each upload.
 
-### Weights
+### Weights, and why they are not in the repository
 
-Train them with the notebook, or place `saans_xray_densenet121.h5` and its `.json` sidecar in `backend/models/`. Block 8 of the notebook copies both there.
+Three trained files are gitignored. Git keeps every version of a binary forever,
+so committing them makes the repository permanently large and slow to clone, and
+the encoder is close to GitHub's 100 MB per-file limit anyway.
+
+**A fresh clone runs without any of them.** Nothing crashes; the parts that need
+a model degrade and say so:
+
+| File | Size | Without it |
+| --- | --- | --- |
+| `saans_xray_densenet121.h5` | 28 MB | X-ray falls back to `DEMO_MODE` — a fixed stand-in response |
+| `cough_detector.joblib` | 4 MB | The energy-based burst detector answers alone, less reliably |
+| `embedding/onnx/model.onnx` | 86 MB | Downloads itself on first use — nothing to do |
+
+The `.json` sidecars, the handbook index (`who_index.npz`) and the training plots
+**are** committed, so metrics and citations survive a clone.
+
+To get the real models: train them (see [Training](#training)), or copy the two
+small files from someone who has. For a team, attaching them to a GitHub Release
+is tidier than sending them around — free, up to 2 GB per file, and no repository
+bloat. They go in `backend/models/`.
+
+Check which mode you are in:
+
+```bash
+curl http://localhost:8000/api/health
+```
+
+`"demo_mode": false` means the real X-ray model loaded; `true` means the stand-in.
+`SAANS_DEMO_MODE=1` forces the stand-in, `0` forces the real model.
 
 ### Installing it on a phone
 
