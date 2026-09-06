@@ -1,0 +1,44 @@
+# Everything here would otherwise be uploaded to the Docker daemon on every
+# build. The four big ones are node_modules (104 MB), backend/models (208 MB),
+# notebooks (100 MB) and the source artwork for the guides (17 MB).
+
+# Installed inside the image by `npm ci`.
+node_modules
+
+# Built inside the image by the web stage; a stale local copy must not win.
+dist
+dist-ssr
+.vite
+
+# Weights, the handbook index and the two self-downloading models. Mounted as
+# a volume at runtime instead of baked in, so the image stays small and a new
+# model does not mean a rebuild.
+backend/models
+
+# Training only. Never imported by the server.
+notebooks
+saans_data
+
+# Source artwork for the question guides. The built WebP files in
+# src/assets/guides/ are what the app uses and those are kept.
+src/assets/*.png
+
+# Secrets. Passed in by compose as environment variables instead.
+.env
+kaggle.json
+
+.git
+.gitignore
+.github
+.claude
+.vscode
+__pycache__
+**/__pycache__
+*.py[cod]
+.venv
+venv
+Dockerfile
+.dockerignore
+docker-compose.yml
+*.md
+!README.md

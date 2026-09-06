@@ -1,0 +1,48 @@
+# One command:  docker compose up -d
+#
+# Brings up a single container serving both the API and the page on one port,
+# isolated from whatever else is running on the host.
+#
+# Before the first run:  cp .env.example .env  and put your Groq key in it.
+# Compose reads that file below and will refuse to start without it.
+
+services:
+  saans:
+    build: .
+    image: saans:latest
+    container_name: saans
+
+    # Host port is configurable because this box runs other things. Change it
+    # in .env with SAANS_PORT=..., not here.
+    ports:
+      - "${SAANS_PORT:-8042}:8000"
+
+    # Weights, the handbook index, and the encoder and reranker that download
+    # themselves on first use. Kept outside the image so it stays small and so
+    # the ~170 MB of downloaded models survive a rebuild.
+    volumes:
+      - ./backend/models:/app/backend/models
+
+    env_file:
+      - .env
+
+    environment:
+      # 1 forces the X-ray stand-in even when the weights are present.
+      SAANS_DEMO_MODE: "${SAANS_DEMO_MODE:-0}"
+      # 0 turns off cross-encoder reranking and falls back to vector order.
+      SAANS_RERANK: "${SAANS_RERANK:-1}"
+
+    # TensorFlow settles around 2 GB. The ceiling is what stops a bad day here
+    # from starving the neighbours on a shared box.
+    mem_limit: 4g
+
+    restart: unless-stopped
+
+    # start_period is generous on purpose: the first request loads TensorFlow
+    # and may download the encoder and reranker.
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 180s

@@ -4,6 +4,7 @@ import os
 
 from fastapi import Body, FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from . import rag
 from .audio import analyze as analyze_cough
@@ -133,3 +134,29 @@ def assistant_ask(question: str = Body(..., embed=True)):
         raise HTTPException(status_code=503, detail=str(exc))
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Assistant failed: {exc}")
+
+
+# --------------------------------------------------------------------------
+# The app itself
+# --------------------------------------------------------------------------
+#
+# Serving the built frontend from the same process is what makes this one
+# service on one port. It also removes a class of problem rather than solving
+# it: same origin means no CORS, no proxy to keep in step with the API, and a
+# service worker whose scope covers both the page and the calls it makes, which
+# is what "Add to Home Screen" needs.
+#
+# Mounted last on purpose. A mount at "/" matches everything, so every /api
+# route above has to be registered before it or the API disappears behind the
+# page.
+#
+# In development there is no dist/ and this is skipped, leaving `npm run dev`
+# to serve the frontend and proxy /api here exactly as before.
+
+STATIC_DIR = os.environ.get(
+    "SAANS_STATIC_DIR", os.path.join(os.path.dirname(os.path.dirname(__file__)), "dist")
+)
+
+if os.path.isdir(STATIC_DIR):
+    # html=True serves index.html at "/" and for directory paths.
+    app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="frontend")
