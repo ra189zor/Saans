@@ -74,7 +74,20 @@ MIN_SIMILARITY = 0.25     # below this, refuse without calling the model
 REFUSAL = "I cannot find this in the WHO handbook - please refer to a clinician."
 
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
-GROQ_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b")
+# compound-mini over gpt-oss-20b for one clinical reason: asked how many
+# tablets a 12 kg child takes, gpt-oss answers "3 tablets" and compound-mini
+# answers "the 12–<16 kg weight band, 3 tablets of each drug (isoniazid,
+# rifampicin, pyrazinamide)". Three tablets of what is not a safe answer.
+#
+# It costs about a second (1.2-2.0s against 0.4-0.8s) and is capped at 250
+# requests a day rather than 1,000, though its per-minute token budget is far
+# higher: 70,000 against 8,000. Exhaust the daily cap and gpt-oss-20b is a
+# one-line fallback in .env.
+#
+# Not groq/compound, its larger sibling: that one returns HTTP 413 on some
+# plausible clinical questions ("what is the BCG schedule used in Pakistan?")
+# with the rate limit untouched, which would reach the health worker as a 503.
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "groq/compound-mini")
 GROQ_TIMEOUT = 30
 
 # Groq sits behind Cloudflare, which rejects urllib's default
