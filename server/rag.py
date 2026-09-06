@@ -62,6 +62,13 @@ EMBED_DIR = os.environ.get(
 )
 EMBED_REPO = "sentence-transformers/all-MiniLM-L6-v2"
 
+RERANK_DIR = os.environ.get(
+    "SAANS_RERANK_MODEL", os.path.join(_ROOT, "backend", "models", "reranker")
+)
+RERANK_REPO = "Xenova/ms-marco-MiniLM-L-6-v2"
+# Set SAANS_RERANK=0 to fall back to plain vector order.
+RERANK_ENABLED = os.environ.get("SAANS_RERANK", "1") != "0"
+
 # Chunking. Small enough that a retrieved passage is mostly on-topic, with an
 # overlap so a sentence spanning a boundary is not lost to both chunks.
 CHUNK_CHARS = 900
@@ -71,23 +78,27 @@ MIN_CHUNK_CHARS = 120
 TOP_K = 4
 MIN_SIMILARITY = 0.25     # below this, refuse without calling the model
 
+# How many vector hits the cross-encoder re-reads before the best TOP_K are
+# kept. 30 was chosen by measurement, not taste: the passage answering "what is
+# the TB dose for a 12 kg child?" sits at vector rank 27, and reranking lifts it
+# to 1. A larger pool costs roughly 35 ms per extra passage for nothing.
+RERANK_POOL = 30
+
 REFUSAL = "I cannot find this in the WHO handbook - please refer to a clinician."
 
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
-# compound-mini over gpt-oss-20b for one clinical reason: asked how many
-# tablets a 12 kg child takes, gpt-oss answers "3 tablets" and compound-mini
-# answers "the 12–<16 kg weight band, 3 tablets of each drug (isoniazid,
-# rifampicin, pyrazinamide)". Three tablets of what is not a safe answer.
+# gpt-oss-20b over the compound models, measured on both quality and failure.
 #
-# It costs about a second (1.2-2.0s against 0.4-0.8s) and is capped at 250
-# requests a day rather than 1,000, though its per-minute token budget is far
-# higher: 70,000 against 8,000. Exhaust the daily cap and gpt-oss-20b is a
-# one-line fallback in .env.
-#
-# Not groq/compound, its larger sibling: that one returns HTTP 413 on some
-# plausible clinical questions ("what is the BCG schedule used in Pakistan?")
-# with the rate limit untouched, which would reach the health worker as a 503.
-GROQ_MODEL = os.environ.get("GROQ_MODEL", "groq/compound-mini")
+# compound-mini was tried as the default because it answered the dosing
+# question more fully, but that turned out to be the prompt rather than the
+# model - the dosing rule below gets the same answer out of gpt-oss at a third
+# of the latency. Against it: compound routes internally to gpt-oss-120b and
+# spends that model's 8,000 tokens a minute, so its advertised 70,000 is not
+# real; it allows 250 requests a day rather than 1,000; it leaked tool-citation
+# markers such as "【2†L1-L3】" into one answer in eight; and it returns HTTP 413
+# when it reaches for a web tool, which reaches the health worker as a 503.
+# Its larger sibling groq/compound does that reproducibly.
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b")
 GROQ_TIMEOUT = 30
 
 # Groq sits behind Cloudflare, which rejects urllib's default
@@ -110,6 +121,11 @@ or a threshold that is not written there.
 - Answer in plain, simple English. Short sentences. A health worker, not a \
 doctor, is reading it.
 - Keep it under 120 words.
+- NEVER answer a dose or a tablet count with a bare number. "3 tablets" is not \
+safe to act on: three tablets of what, in which phase? Every such answer must \
+name the weight band it was read from, name the medicines, and separate the \
+intensive phase from the continuation phase. If a medicine is only added for \
+some children, say that rather than listing it as routine.
 - Do not add a disclaimer; the screen already shows one.
 """
 
@@ -163,6 +179,101 @@ def embed(texts):
     pooled = (hidden * m).sum(axis=1) / np.maximum(m.sum(axis=1), 1e-9)
     norms = np.linalg.norm(pooled, axis=1, keepdims=True)
     return (pooled / np.maximum(norms, 1e-9)).astype(np.float32)
+
+
+# --------------------------------------------------------------------------
+# Reranking - a cross-encoder second pass over the vector hits
+# --------------------------------------------------------------------------
+#
+# The embedder turns the question and each passage into a vector separately and
+# compares the two summaries. That is fast enough to search a whole book in
+# 3 ms, and it is why "what is the TB dose for a 12 kg child?" failed: the
+# handbook writes doses as "number of tablets by weight band", the passage is
+# mostly digits, and no summary of one looks like a summary of the other.
+#
+# A cross-encoder reads the question and the passage together and scores the
+# pair, so it can see that "3 tablets" answers "what dose". It is far too slow
+# to run over 1,055 chunks, so it re-reads only the top RERANK_POOL that the
+# vector search already found. Measured on the dosing questions: vector rank 27
+# and 28 both become rank 1, and the phrasing that already worked stays at 1.
+#
+# It is optional in the strict sense. Missing model, no network on first run,
+# or SAANS_RERANK=0, and retrieval falls back to plain vector order - the
+# assistant is degraded, never broken.
+
+_rerank_session = None
+_rerank_tokenizer = None
+_rerank_failed = False
+
+
+def _ensure_reranker():
+    """Load the cross-encoder, downloading it once. None if unavailable."""
+    global _rerank_session, _rerank_tokenizer, _rerank_failed
+    if _rerank_failed or not RERANK_ENABLED:
+        return None, None
+    if _rerank_session is not None:
+        return _rerank_session, _rerank_tokenizer
+
+    try:
+        import onnxruntime
+        from tokenizers import Tokenizer
+
+        model_path = os.path.join(RERANK_DIR, "onnx", "model.onnx")
+        tok_path = os.path.join(RERANK_DIR, "tokenizer.json")
+        if not (os.path.exists(model_path) and os.path.exists(tok_path)):
+            from huggingface_hub import hf_hub_download
+
+            os.makedirs(RERANK_DIR, exist_ok=True)
+            for name in ("onnx/model.onnx", "tokenizer.json"):
+                hf_hub_download(repo_id=RERANK_REPO, filename=name,
+                                local_dir=RERANK_DIR)
+
+        options = onnxruntime.SessionOptions()
+        # The server this runs on is a 2-core/4-thread laptop CPU.
+        options.intra_op_num_threads = 4
+        _rerank_session = onnxruntime.InferenceSession(
+            model_path, options, providers=["CPUExecutionProvider"]
+        )
+        _rerank_tokenizer = Tokenizer.from_file(tok_path)
+        _rerank_tokenizer.enable_truncation(max_length=384)
+        _rerank_tokenizer.enable_padding()
+    except Exception as exc:
+        # Tried once, then left alone: a reranker that cannot load must not
+        # cost a failed download on every question.
+        _rerank_failed = True
+        print(f"[rag] reranker unavailable, using vector order only: {exc}")
+        return None, None
+
+    return _rerank_session, _rerank_tokenizer
+
+
+def rerank(question, passages):
+    """
+    Reorder passages by cross-encoder relevance. Unchanged if unavailable.
+
+    Each passage keeps its vector `score`; the pair score is added as
+    `rerank_score` so the two are never confused downstream.
+    """
+    session, tokenizer = _ensure_reranker()
+    if session is None or not passages:
+        return passages
+
+    encoded = tokenizer.encode_batch(
+        [(question, p["text"]) for p in passages]
+    )
+    ids = np.array([e.ids for e in encoded], dtype=np.int64)
+    mask = np.array([e.attention_mask for e in encoded], dtype=np.int64)
+    feed = {"input_ids": ids, "attention_mask": mask}
+    if any(i.name == "token_type_ids" for i in session.get_inputs()):
+        feed["token_type_ids"] = np.array(
+            [e.type_ids for e in encoded], dtype=np.int64
+        )
+
+    logits = session.run(None, feed)[0]
+    scores = logits[:, 0] if logits.shape[-1] == 1 else logits[:, -1]
+    for passage, score in zip(passages, scores):
+        passage["rerank_score"] = round(float(score), 4)
+    return sorted(passages, key=lambda p: p["rerank_score"], reverse=True)
 
 
 # --------------------------------------------------------------------------
@@ -364,9 +475,20 @@ def retrieve(question, top_k=TOP_K):
             "    python notebooks/build_who_index.py"
         )
     scores = index["vectors"] @ embed([question])[0]
-    order = np.argsort(scores)[::-1][:top_k]
     captions = index.get("captions")
-    return [
+
+    # Widen, then let the cross-encoder narrow. Without a reranker the pool is
+    # just top_k and this behaves exactly as it did before.
+    pool_size = max(top_k, RERANK_POOL) if RERANK_ENABLED else top_k
+    order = np.argsort(scores)[::-1][:pool_size]
+
+    # The highest vector similarity in the pool, carried on every passage.
+    # ask() refuses on this rather than on whatever reranking put first, so an
+    # off-topic question is still refused without an API call and reranking
+    # cannot silently change what counts as "nothing relevant found".
+    vector_best = round(float(scores[order[0]]), 4) if len(order) else 0.0
+
+    candidates = [
         {
             "text": str(index["texts"][i]),
             "page": int(index["pages"][i]),
@@ -375,9 +497,18 @@ def retrieve(question, top_k=TOP_K):
             # nothing without the caption that says what the numbers are.
             "caption": (str(captions[i]) or None) if captions is not None else None,
             "score": round(float(scores[i]), 4),
+            "vector_best": vector_best,
         }
         for i in order
     ]
+
+    # Nothing relevant was found, so ask() is about to refuse. Reranking a set
+    # the caller will throw away costs a second for no answer, and refusing an
+    # off-topic question quickly is a property worth keeping.
+    if vector_best < MIN_SIMILARITY:
+        return candidates[:top_k]
+
+    return rerank(question, candidates)[:top_k]
 
 
 # --------------------------------------------------------------------------
@@ -481,7 +612,10 @@ def ask(question: str) -> dict:
         raise ValueError("Empty question.")
 
     passages = retrieve(question)
-    best = passages[0]["score"] if passages else 0.0
+    # The best vector similarity found, not the score of whatever the
+    # cross-encoder ranked first — reranking reorders passages, it does not
+    # change whether the handbook had anything relevant to say.
+    best = passages[0]["vector_best"] if passages else 0.0
 
     # Guard 1: nothing relevant retrieved. Refuse before spending a call - a
     # model handed weak context is a model invited to fill the gap itself.

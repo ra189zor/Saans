@@ -184,9 +184,31 @@ health worker can type a question — "What is the TB dose for a 12 kg child?" �
 and get an answer drawn only from the WHO handbook, with the page it came from
 shown underneath.
 
-Retrieval is local. The handbook is split into 1,055 chunks, embedded with
-all-MiniLM-L6-v2 running on onnxruntime, and searched by cosine similarity over a
-numpy matrix. Only writing the final answer calls out to a hosted model (Groq).
+Retrieval is local, and runs in two passes. The handbook is split into 1,055
+chunks, embedded with all-MiniLM-L6-v2 on onnxruntime, and searched by cosine
+similarity over a numpy matrix — 3 ms for the whole book. The best 30 hits then
+go to a cross-encoder (ms-marco-MiniLM-L-6-v2, 87 MB, also onnxruntime) which
+re-reads each one *against the question* and keeps the best four. Only writing
+the final answer calls out to a hosted model (Groq).
+
+The second pass exists because the first one cannot bridge vocabulary. Asked
+"what is the TB dose for a 12 kg child?", the embedder put the answer at rank
+**27**: the handbook writes doses as *number of tablets by weight band*, the
+passage is mostly digits, and a summary of one does not resemble a summary of
+the other. The cross-encoder sees both together and moves it to **rank 1**.
+Measured, and it costs about a second.
+
+Reranking is skipped when nothing cleared the similarity floor, so an off-topic
+question is still refused in well under 100 ms without spending an API call.
+It is also strictly optional: `SAANS_RERANK=0`, a missing model, or no network
+on first run, and retrieval falls back to plain vector order — degraded, never
+broken.
+
+A stronger embedder was tried first and rejected on measurement. gte-base and
+bge-base (440 MB each, 5x the index build time) did not fix the failing
+question and were *worse* on the phrasing that already worked, dropping it from
+rank 1 to 9 and 2. The larger reranker was worse still: bge-reranker-base is
+1 GB, takes 5–6 seconds, and only reached rank 4. Bigger lost every time.
 
 Two details of the chunking exist because of the dosing tables. Pages are cut
 where a table caption begins, so "Table 5.5. Dosing table for first-line
@@ -302,6 +324,7 @@ a model degrade and say so:
 | `saans_xray_densenet121.h5` | 28 MB | X-ray falls back to `DEMO_MODE` — a fixed stand-in response |
 | `cough_detector.joblib` | 4 MB | The energy-based burst detector answers alone, less reliably |
 | `embedding/onnx/model.onnx` | 86 MB | Downloads itself on first use — nothing to do |
+| `reranker/onnx/model.onnx` | 87 MB | Downloads itself on first use; without it retrieval falls back to plain vector order |
 
 The `.json` sidecars, the handbook index (`who_index.npz`) and the training plots
 **are** committed, so metrics and citations survive a clone.
@@ -438,15 +461,12 @@ ages 0–4; COUGHVID contributes 88 such recordings in total. It was measured on
 children rather than assumed to work — see the table above — but 59 under-fives
 is a small test set, and COUGHVID's ages are self-reported on a web form.
 
-**The assistant answers dosing questions only in the handbook's own words.**
-"How many tablets for a child weighing 12 kg?" returns "3 tablets" and cites
-page 120, which is Table 5.5's 12–<16 kg band. Phrase the same question as
-"what is the TB dose for a 12 kg child?" and it refuses: the handbook says
-*number of tablets by weight band*, not *dose*, and a sentence-embedding model
-this small does not bridge that. The right passage ranks 1st for the first
-phrasing and 27th for the second. Ask in the handbook's vocabulary — tablets,
-weight band, regimen — and it finds things; ask in clinical shorthand and it may
-refuse. It fails safe either way: a refusal, never an invented dose.
+**Dosing answers are not always complete about ethambutol.** Table 5.5 lists
+ethambutol beside HRZ, but its footnote makes it conditional — added only for
+extensive disease, HIV, or high-resistance settings. The prompt asks for that
+distinction and it is usually made, but not on every phrasing: one answer listed
+E alongside the other three as though it were routine. The tablet counts and
+weight bands have been correct in testing; the conditionality is what slips.
 
 **Retrieval sets the ceiling generally.** If the right passage is not among the
 four retrieved, the answer is a refusal rather than a wrong one; a refusal on a

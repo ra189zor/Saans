@@ -42,3 +42,7 @@ backend/models/*.joblib
 # MiniLM sentence encoder for the WHO assistant (~90 MB). Downloads itself on
 # first use; the index it produces (who_index.npz) is small and is committed.
 backend/models/embedding/
+
+# Cross-encoder that reranks the search hits (~87 MB). Also downloads itself on
+# first use, and the assistant falls back to plain vector order without it.
+backend/models/reranker/
