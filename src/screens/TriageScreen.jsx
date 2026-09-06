@@ -3,6 +3,8 @@ import Screen, { COLUMN } from '../components/Screen.jsx'
 import TopBar from '../components/TopBar.jsx'
 import { useI18n } from '../i18n/index.jsx'
 import BackLink from '../components/BackLink.jsx'
+import { GuideImage } from '../components/Guide.jsx'
+import { hasGuide } from '../data/guides.js'
 
 export default function TriageScreen({
   questions,
@@ -37,23 +39,31 @@ export default function TriageScreen({
   }
 
   return (
-    <Screen>
+    /* `fill` so the question and its picture scroll against a bounded height
+       and YES/NO stay on screen — the answer must never be below the fold. */
+    <Screen fill>
       <TopBar />
 
-      <main className={`${COLUMN} flex flex-1 flex-col pt-6 md:pt-10`}>
+      <main className={`${COLUMN} flex min-h-0 flex-1 flex-col pt-6 md:pt-10`}>
         <Progress current={index + 1} total={total} onBack={goBack} t={t} />
 
-        {/* Keyed so each question replays the entrance transition. */}
-        <div
-          key={question.id}
-          className="animate-question flex flex-1 items-center"
-        >
-          <h1
-            id="question-text"
-            className="text-[1.75rem] leading-snug font-medium text-balance text-fg md:text-[2.5rem] md:leading-[1.25]"
+        <div className="min-h-0 flex-1 overflow-y-auto py-6 md:py-8">
+          {/* Keyed so each question replays the entrance transition.
+              min-h-full centres a short question without clipping the top of
+              a tall one, which plain justify-center on the scroller would. */}
+          <div
+            key={question.id}
+            className="animate-question flex min-h-full flex-col justify-center gap-6 md:gap-8"
           >
-            {t(`dangerSigns.${question.id}.text`)}
-          </h1>
+            <h1
+              id="question-text"
+              className="text-[1.75rem] leading-snug font-medium text-balance text-fg md:text-[2.5rem] md:leading-[1.25]"
+            >
+              {t(`dangerSigns.${question.id}.text`)}
+            </h1>
+
+            {hasGuide(question.id) && <GuideImage guideKey={question.id} />}
+          </div>
         </div>
       </main>
 

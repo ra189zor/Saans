@@ -46,7 +46,9 @@ export default defineConfig({
       workbox: {
         // Fonts are precached deliberately: Android ships no Nastaliq face, so
         // without them the Urdu UI degrades badly rather than invisibly.
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // webp covers the question guides: a worker checking what stridor
+        // looks like is often the one with no signal.
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff2}'],
 
         // The three AI endpoints must always reach the server. They are never
         // precached (they are not build assets) and no runtime rule caches

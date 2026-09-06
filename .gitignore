@@ -20,6 +20,11 @@ venv/
 .env
 kaggle.json
 
+# Source artwork for the question guides — 16.7 MB of PNGs. The app ships the
+# WebP builds in src/assets/guides/ (693 KB), which are committed. Rebuild
+# them with: python scripts/build_guides.py
+src/assets/*.png
+
 # trained model weights - too large for git, see backend/models/README.md
 backend/models/*.h5
 backend/models/*.pt

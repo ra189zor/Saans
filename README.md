@@ -104,6 +104,43 @@ what produced the hint, in English and Urdu.
 Retrain with `python notebooks/train_cough_model.py`. Feature extraction is
 shared with `server/audio.py`, so training and serving cannot drift apart.
 
+## Visual guides
+
+A Lady Health Worker may meet stridor or a bulging fontanelle a handful of
+times a year. The question text alone assumes she already knows the sign, so
+nine questions carry a picture of what that sign looks like on a child:
+
+| Question | Shows |
+| --- | --- |
+| Seizure or fit | Six examples — jerking, stiffening, eyes rolling up, unresponsiveness, frothing, loss of continence |
+| Loud harsh noise while breathing calmly | Stridor present against a child breathing quietly |
+| Severe dehydration | The skin-pinch test with return times, and sunken eyes |
+| Severe palmar pallor | Severe, mild and healthy palms side by side |
+| Neck stiffness or bulging fontanelle | Bending the neck and feeling the soft spot, normal against abnormal |
+| Severe signs (breathing check) | Blue or purple lips against normal pink |
+| MUAC tape colour | A tape in place, and the three colour bands with their cut-offs |
+| Swollen lymph nodes | Where to feel — neck, jaw, behind the ears — and normal against abnormal |
+| Respiratory rate | One breath cycle, chest rising and falling |
+
+Where a screen asks one question at a time the picture sits under it. On the
+symptom form, which is long, it is a "How to check" line instead. Both open the
+same full-screen viewer, which zooms past the width of the screen — these are
+detailed charts and their small print is unreadable at phone width.
+
+No brightness or contrast filter is applied at any size. Half of these are
+colour judgements — a pale palm, blue lips, the red band on a MUAC tape — and
+shading them to sit more comfortably in a dark UI would change the very thing
+being compared.
+
+The artwork is English only. The interface around it, including alt text for
+every picture, is translated.
+
+Sources are 1.5–2.3 MB PNGs, about 16.7 MB for the set, which is too much for
+an app installed over a slow connection and precached for offline use.
+`scripts/build_guides.py` resizes and re-encodes them to WebP — 693 KB for all
+ten, roughly 35x smaller — and those builds are what the repository holds. Drop
+replacements into `src/assets/` and re-run it.
+
 ## Ask WHO Assistant
 
 The results screen has an **Ask WHO Assistant** button. It opens a chat where the
@@ -283,10 +320,14 @@ src/
   i18n/           English and Urdu dictionaries
   lib/network.js  tells "no internet" apart from "server not running"
   fonts.css       generated — @font-face for the self-hosted faces
+  components/
+    Guide.jsx     the picture attached to a question, and its viewer
+  data/guides.js  which picture belongs to which question
+  assets/guides/  the built WebP artwork
 public/
   fonts/          Inter, Sora, Noto Nastaliq Urdu (variable, one file each)
   icons/          app icons, including the maskable variant
-scripts/          fetch_fonts.py, make_icons.py — regenerate the above
+scripts/          fetch_fonts.py, make_icons.py, build_guides.py
 server/
   app.py          FastAPI endpoints, .env loader
   vision.py       X-ray model loading, Grad-CAM, heatmap rendering

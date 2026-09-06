@@ -9,6 +9,8 @@ import {
   scoreFindings,
 } from '../data/scoring.js'
 import { vitalThresholds, isTachypnoeic, isTachycardic } from '../data/vitals.js'
+import { GuideLink } from '../components/Guide.jsx'
+import { hasGuide } from '../data/guides.js'
 
 /* Cough and fever come from the sliders and the two vital-sign items from
    measured rates; these five are asked directly. */
@@ -111,12 +113,21 @@ export default function SymptomMatrixScreen({
 
         <div className="mt-9 flex flex-col gap-3 md:mt-11 md:gap-4">
           {TOGGLE_IDS.map((id) => (
-            <ToggleRow
-              key={id}
-              label={t(`symptoms.toggles.${id}`)}
-              checked={flags[id]}
-              onChange={() => setFlag(id, !flags[id])}
-            />
+            /* This screen is a long form, so a guide is offered as a line
+               under its row rather than as a picture that would push the
+               rest of the questions off the screen. */
+            <div key={id}>
+              <ToggleRow
+                label={t(`symptoms.toggles.${id}`)}
+                checked={flags[id]}
+                onChange={() => setFlag(id, !flags[id])}
+              />
+              {hasGuide(id) && (
+                <div className="mt-1 ps-1">
+                  <GuideLink guideKey={id} />
+                </div>
+              )}
+            </div>
           ))}
         </div>
 
@@ -126,16 +137,21 @@ export default function SymptomMatrixScreen({
           </p>
 
           <div className="mt-4 flex flex-col gap-3 md:gap-4">
-            <RateField
-              id="respiratory-rate"
-              label={t('symptoms.respiratoryRate')}
-              unit={t('symptoms.respiratoryUnit')}
-              hint={t('symptoms.respiratoryHint', {
-                threshold: thresholds.respiratory,
-              })}
-              value={respiratoryRate}
-              onChange={onRespiratoryRate}
-            />
+            <div>
+              <RateField
+                id="respiratory-rate"
+                label={t('symptoms.respiratoryRate')}
+                unit={t('symptoms.respiratoryUnit')}
+                hint={t('symptoms.respiratoryHint', {
+                  threshold: thresholds.respiratory,
+                })}
+                value={respiratoryRate}
+                onChange={onRespiratoryRate}
+              />
+              <div className="mt-1 ps-1">
+                <GuideLink guideKey="respiratoryRate" />
+              </div>
+            </div>
             <ToggleRow
               label={t('symptoms.tachypnoea')}
               checked={flags.tachypnoea}

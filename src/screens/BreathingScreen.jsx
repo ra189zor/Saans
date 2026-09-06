@@ -1,6 +1,7 @@
 import Screen, { COLUMN } from '../components/Screen.jsx'
 import TopBar from '../components/TopBar.jsx'
 import { useI18n } from '../i18n/index.jsx'
+import { GuideImage } from '../components/Guide.jsx'
 
 export default function BreathingScreen({
   onSevere,
@@ -23,6 +24,12 @@ export default function BreathingScreen({
         <p className="text-[1.5rem] leading-snug font-medium text-balance text-fg md:text-[2rem] md:leading-[1.3]">
           {t('breathing.lead')}
         </p>
+
+        {/* Blue lips is the sign a worker is least likely to have seen, and
+            the one that decides between the two buttons below. */}
+        <div className="mt-7 md:mt-9">
+          <GuideImage guideKey="breathingSevere" />
+        </div>
       </main>
 
       <footer className={`${COLUMN} pb-8 md:pb-12`}>

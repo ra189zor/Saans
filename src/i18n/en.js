@@ -58,6 +58,36 @@ export const en = {
     progress: 'Question {current} of {total}',
   },
 
+  guide: {
+    howToCheck: 'How to check',
+    close: 'Close',
+    zoomHint: 'Tap the picture to zoom in.',
+    fitHint: 'Tap the picture again to fit it to the screen.',
+    // Read aloud when the picture cannot be seen, so each one describes the
+    // sign itself rather than naming the file.
+    alt: {
+      seizure:
+        'Six drawings of a child during a seizure: jerking or shaking, the body or limbs stiffening, the eyes rolling up, no response when spoken to, frothing at the mouth, and loss of control of urine or stool.',
+      stridor:
+        'A child breathing in, with a loud harsh noise coming from the throat. Two examples compare a child with stridor against a child breathing quietly.',
+      dehydration:
+        'A health worker pinching the skin on a child’s upper arm, beside a chart showing the skin returning to normal in more than two seconds in severe dehydration, one to two seconds in some dehydration, and under a second when normal. Sunken eyes are also shown.',
+      pallor:
+        'A health worker opening a child’s palm to look at its colour, beside three palms: severe pallor where the palm is almost white, mild pallor where it is paler than normal, and a healthy pink palm.',
+      neckStiffness:
+        'A health worker gently bending a child’s head forward and feeling the soft spot on top of the head, with pairs comparing a neck that bends easily against a stiff neck, and a flat soft spot against a bulging one.',
+      breathingSevere:
+        'A close view of a child’s mouth, comparing blue or purple lips, which is a severe danger sign, against normal pink lips.',
+      muac: 'A MUAC tape around a child’s upper arm reading in the yellow band, beside the three colour zones: red below 11.5 cm, yellow between 11.5 and 12.5 cm, and green at 12.5 cm or more.',
+      lymphNodes:
+        'Where to feel for swollen lymph nodes on a child — the sides of the neck, under the jaw, and behind the ears — with a comparison of a normal neck against one with a visible, firm, painless swelling.',
+      respiratoryRate:
+        'A child lying down through one breath: the chest and stomach rise as the child breathes in, then fall as the child breathes out.',
+      respiratoryRateDetail:
+        'A child sitting calmly, with an arrow tracing the chest moving in and out, labelled one breath.',
+    },
+  },
+
   dangerSigns: {
     drink: {
       text: 'Can the child drink or breastfeed?',

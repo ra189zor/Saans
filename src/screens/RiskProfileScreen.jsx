@@ -2,6 +2,7 @@ import { useState } from 'react'
 import Screen, { COLUMN } from '../components/Screen.jsx'
 import TopBar from '../components/TopBar.jsx'
 import { useI18n } from '../i18n/index.jsx'
+import { GuideImage } from '../components/Guide.jsx'
 
 const MUAC_BANDS = [
   { id: 'red', fill: 'bg-muac-red', text: 'text-white' },
@@ -76,6 +77,13 @@ export default function RiskProfileScreen({
           <h2 className="text-xl leading-snug font-medium text-balance text-fg md:text-2xl">
             {t('riskProfile.muacQuestion')}
           </h2>
+
+          {/* Above the colour buttons, not below: reading the tape is the
+              step that has to happen before any of them can be chosen. */}
+          <div className="mt-4 md:mt-5">
+            <GuideImage guideKey="muac" />
+          </div>
+
           <div className="mt-4 flex flex-col gap-3 md:mt-5 md:gap-4">
             {MUAC_BANDS.map((band) => (
               <MuacButton
