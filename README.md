@@ -69,6 +69,30 @@ duration: "unremitting symptoms lasting more than 2 weeks" (handbook p95). A ten
 second recording cannot measure two weeks, so the sound of a cough is not the
 thing the algorithm scores. The slider is.
 
+### Then why is it in the app at all?
+
+Plainly: today the recording does very little for the child in front of you. It
+is held in `App.jsx` and read nowhere else. Two things justify keeping it.
+
+**It is how a paediatric cough model would get built.** COUGHVID holds 88
+recordings from under-fives out of 34,434 — that is the entire public supply
+for the age band Saans screens, and 59 of them survive decoding and quality
+filtering into the test set below. No amount of modelling fixes a corpus that
+small. The only route to a real under-five cough model is collecting recordings
+in the field, each one labelled against the screening outcome captured beside
+it. An app that records a cough during screening is how that dataset starts to
+exist; the model shipped here is the placeholder that makes the capture step
+worth performing.
+
+**It checks the capture.** The detector confirms a cough was actually recorded
+rather than ten seconds of room noise — worth knowing before that clip is
+stored as training data, and worth knowing for the worker holding the tablet.
+
+So the honest summary is that this feature is infrastructure for a later
+version, not a diagnostic aid in this one. It is listed that way in
+[Limitations](#limitations) and on the roadmap, and it should be described that
+way to anyone evaluating the project.
+
 Two components, and they are not equally strong:
 
 **Is there a cough** — a RandomForest over 66 features (20 MFCCs with their
@@ -93,8 +117,8 @@ training entirely**, and the adult-trained model was then scored by age group:
 | **Children under 5** | **59** | **0.881** | **0.882** | **0.951** |
 
 Adult training transfers, at a cost of about 0.03 AUC. Treat the under-five row
-as "around 0.95": 59 recordings is the entire public supply for that age band,
-and the confidence interval on it is wide.
+as "around 0.95" rather than as a measurement: 59 recordings is everything the
+public data yields for that age band, and the confidence interval on it is wide.
 
 Two safeguards follow from this. The energy-based burst detector runs alongside
 the model and **either** can call a cough, so an adult-trained classifier cannot
@@ -349,6 +373,12 @@ These are real and are stated here rather than buried.
 **WHO does not endorse automated X-ray reading in this age group.** The recommendation on computer-aided detection is "currently limited to people aged 15 years and older" (handbook p41), and the handbook notes that data in children "remain limited, and further research is needed to make recommendations" (p90).
 
 **The X-ray is never the decision.** The handbook is explicit: "A CXR alone cannot be used to determine the correct treatment for the child" (p90), and CXRs "should be read by someone trained in paediatric CXR interpretation". The model suggests, the health worker confirms, and only confirmed findings are scored. Remove the model entirely and the app still works through Algorithm B, which is designed for clinics without an X-ray at all.
+
+**The cough recording changes nothing.** WHO scores cough by duration, which ten
+seconds of audio cannot measure, so the result is never passed to the scorer. In
+this version the feature is a capture step for a dataset that does not exist
+yet, not a diagnostic aid — see [Then why is it in the app at all?](#then-why-is-it-in-the-app-at-all)
+above. Describe it that way.
 
 **The cough detector is trained on adults.** No public cough dataset exists for
 ages 0–4; COUGHVID contributes 88 such recordings in total. It was measured on
