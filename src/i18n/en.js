@@ -33,7 +33,7 @@ export const en = {
     dividerLeft: 'Paediatric TB Screening',
     dividerRight: 'WHO Algorithm B',
     start: 'Start Screening',
-    footer: 'v0.1 · Offline-ready · Designed for Lady Health Workers, Pakistan',
+    footer: 'SAANS, PAKISTAN',
   },
 
   visitType: {

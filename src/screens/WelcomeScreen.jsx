@@ -51,7 +51,9 @@ export default function WelcomeScreen({ onStart }) {
           {t('welcome.start')}
         </button>
 
-        <p className="mt-6 text-center text-[0.6875rem] leading-relaxed text-faint md:text-xs">
+        {/* An imprint, not a sentence — tracked out so it reads as a mark
+            rather than as text someone forgot to finish. */}
+        <p className="mt-6 text-center text-[0.6875rem] font-medium tracking-[0.18em] text-faint md:text-xs md:tracking-[0.22em]">
           {t('welcome.footer')}
         </p>
       </footer>

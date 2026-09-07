@@ -39,8 +39,7 @@ export const ur = {
     dividerLeft: 'بچوں میں ٹی بی کی جانچ',
     dividerRight: 'عالمی ادارہ صحت الگورتھم B',
     start: 'جانچ شروع کریں',
-    footer:
-      'v0.1 · انٹرنیٹ کے بغیر کام کرتی ہے · پاکستان کی لیڈی ہیلتھ ورکرز کے لیے',
+    footer: 'SAANS, PAKISTAN',
   },
 
   visitType: {
