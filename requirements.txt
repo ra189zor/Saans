@@ -11,12 +11,25 @@ python-multipart>=0.0.9
 # On native Windows, 2.10 is the last release with GPU support, and it needs
 # Python 3.10 and numpy<2. That is the combination the training notebook uses.
 tensorflow>=2.10,<2.11 ; sys_platform == "win32"
-# Upper bound, and it matters. The weights were saved by TensorFlow 2.10, which
-# is Keras 2. From TensorFlow 2.16 onwards tf.keras IS Keras 3, which refuses
-# to load a legacy Keras 2 .h5 - and because the model loads lazily on the
-# first request, the container starts, reports healthy, says demo_mode false,
-# and then returns 422 on every X-ray. An unpinned ">=2.15" installed 2.21 and
-# did exactly that. 2.15 is the last release that is still Keras 2.
+# Upper bound, and it matters. From TensorFlow 2.16 tf.keras IS Keras 3, and
+# an unpinned ">=2.15" installed 2.21 in the container, which broke the X-ray
+# with a 422 on every film.
+#
+# Not because the .h5 will not load - Keras 3 reads legacy H5 fine, only the
+# SavedModel directory format was dropped. It is Grad-CAM that breaks. Keras 3
+# cannot build a sub-model from a functional model that was loaded from .h5:
+#
+#     keras.models.Model(net.inputs, [net.get_layer(...).output, net.output])
+#
+# raises "the layer has never been called and thus has no defined output",
+# which server/vision.py does in _get_grad_model(). Reported against Keras 3.4+
+# and TensorFlow 2.17+ - keras-team/keras#20116, tensorflow/tensorflow#72915.
+# The model loads lazily, so the container starts, reports healthy and says
+# demo_mode false before failing on the first request.
+#
+# 2.15 is the last release still on Keras 2. The other way out is rebuilding
+# the architecture in code and loading only the weights, which would drop this
+# pin - a job for after the pilot, not before it.
 tensorflow>=2.15,<2.16 ; sys_platform != "win32"
 numpy<2 ; sys_platform == "win32"
 
