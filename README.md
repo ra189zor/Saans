@@ -14,6 +14,43 @@ Three optional assists sit alongside the algorithm, and none of them can change 
 
 English and Urdu, with full right-to-left layout.
 
+<p align="center">
+  <img src="docs/img/01-welcome.webp" width="24%" alt="Saans welcome screen" />
+  <img src="docs/img/02-danger-sign-guide.webp" width="24%" alt="A danger sign question with a picture of the sign" />
+  <img src="docs/img/07-results.webp" width="24%" alt="Result screen showing the score and how it was reached" />
+  <img src="docs/img/08-assistant.webp" width="24%" alt="Handbook assistant answering a dosing question with page citations" />
+</p>
+
+<p align="center"><em>Real screens, real output — the score, the guides and the
+assistant's answer are what the app produces, not mockups.</em></p>
+
+## Try it
+
+```bash
+cp .env.example .env          # add a free Groq key for the assistant
+docker compose up -d          # http://localhost:8042
+```
+
+One container serves the API and the page together. Full instructions,
+including putting it on a phone over HTTPS, are in
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
+## What it gets right, and what it does not
+
+| | |
+| --- | --- |
+| TB caught by the X-ray model | **271 of 285** on 1,990 held-out films |
+| False alarms | 30 of 1,705 healthy films (98.2% specificity) |
+| Honest AUC | **0.942**, not the 0.995 the pooled figure suggests — [why](#the-chest-x-ray-model) |
+| Cough detector on under-fives | AUC 0.951, n=59 — every child held out of training |
+| Handbook assistant | 1,055 passages, answers cite a page, refuses when it cannot find one |
+
+Every model here was trained on **adults**, because no public paediatric TB
+X-ray or cough dataset exists. The app is built so that matters as little as
+possible: the WHO score decides, the model only suggests, and a health worker
+confirms every finding. The [Limitations](#limitations) section is not a
+formality — read it before quoting any number above.
+
 ## The problem it addresses
 
 TB in young children is hard to confirm. Sputum is difficult to collect, bacteriological tests often come back negative even when the child has TB, and chest X-rays in children are notoriously hard to read. WHO's answer is a scoring algorithm that combines symptoms, risk factors and X-ray findings into a treatment decision that a non-specialist can follow. Saans is that algorithm, on a tablet, in the health worker's language.
@@ -99,6 +136,12 @@ Calculate Risk Score when there is no X-ray. Once the score is on screen the
 session is over and the recording never gets made. It is skippable in one tap: a
 tablet with no microphone must not strand a worker one step short of the result.
 
+<p align="center">
+  <img src="docs/img/05-symptoms.webp" width="30%" alt="Symptom form with duration sliders and vital signs" />
+  <img src="docs/img/06-cough-step.webp" width="30%" alt="The cough step, offered before the result and skippable" />
+  <img src="docs/img/09-urdu.webp" width="30%" alt="The same app in Urdu, right to left" />
+</p>
+
 So the honest summary is that this feature is infrastructure for a later
 version, not a diagnostic aid in this one. It is listed that way in
 [Limitations](#limitations) and on the roadmap, and it should be described that
@@ -162,6 +205,12 @@ Where a screen asks one question at a time the picture sits under it. On the
 symptom form, which is long, it is a "How to check" line instead. Both open the
 same full-screen viewer, which zooms past the width of the screen — these are
 detailed charts and their small print is unreadable at phone width.
+
+<p align="center">
+  <img src="docs/img/02-danger-sign-guide.webp" width="30%" alt="The seizure question with its picture below" />
+  <img src="docs/img/03-guide-viewer.webp" width="30%" alt="The same picture opened full screen" />
+  <img src="docs/img/04-muac.webp" width="30%" alt="The MUAC question with the tape and its colour bands" />
+</p>
 
 No brightness or contrast filter is applied at any size. Half of these are
 colour judgements — a pale palm, blue lips, the red band on a MUAC tape — and
@@ -255,253 +304,16 @@ connection the assistant says so and everything else carries on.
 
 ### Setup
 
-Get a free key at <https://console.groq.com/keys>, then create `.env` in the
-project root (it is gitignored — never commit it):
+The assistant is the one feature that needs a key. Get a free one at
+<https://console.groq.com/keys> and put it in `.env`:
 
 ```
 GROQ_API_KEY=gsk_your_key_here
 ```
 
-`.env.example` has the template. Build the search index once:
-
-```bash
-python notebooks/build_who_index.py
-```
-
-That downloads the ~90 MB encoder on first run and writes
-`backend/models/who_index.npz`. The index is committed; the encoder is not.
-
-## Running it
-
-### With Docker — one command
-
-```bash
-cp .env.example .env    # put your Groq key in it; compose reads this file
-docker compose up -d
-```
-
-Opens on **http://localhost:8042**. One container serves the API and the page
-together, so there is nothing else to start and no second port to remember.
-Change the host port with `SAANS_PORT=...` in `.env` if 8042 is taken.
-
-The image builds the frontend in a throwaway Node stage and ships only the
-result, so no toolchain goes to the server. `.dockerignore` keeps the build
-context at **4.7 MB** rather than the 447 MB the directory weighs — without it
-every build would upload `node_modules`, the datasets and the model files.
-
-Weights, the handbook index and the two self-downloading models are a volume
-(`./backend/models`), not image layers. The image stays small, a new model does
-not mean a rebuild, and the ~170 MB the encoder and reranker fetch on first use
-survives one.
-
-```bash
-docker compose logs -f saans      # follow it
-docker compose restart saans      # after changing .env
-docker compose up -d --build      # after changing code
-```
-
-### Putting it on someone else's phone
-
-```bash
-docker compose --profile tunnel up -d
-docker compose logs tunnel | grep trycloudflare.com
-```
-
-That prints a public **https://** address. HTTPS is the reason this exists, not
-reachability: port forwarding already makes the server reachable, but a browser
-refuses to register a service worker or offer **Add to Home Screen** over plain
-`http`, so an installable app needs a certificate. This borrows Cloudflare's.
-
-The connection is outbound, so nothing new is opened on the router and it works
-behind CGNAT — which most Pakistani ISPs use, and which makes port forwarding a
-dead end for this. It reaches the container over the compose network, so
-`SAANS_PORT` is irrelevant to it.
-
-**The address changes every time the tunnel restarts.** Start it, take the
-address, and leave it running. Generate any QR code from the address you have on
-the day, not from one saved earlier.
-
-```bash
-docker compose --profile tunnel down    # stop just the tunnel
-```
-
-TensorFlow makes this image roughly 3 GB. That is the cost of serving the real
-X-ray model; `SAANS_DEMO_MODE=1` skips loading it but not installing it.
-
-### Frontend
-
-```bash
-npm install
-npm run dev
-```
-
-Opens on http://localhost:5173.
-
-### Backend
-
-One FastAPI service serves all three assists. It needs TensorFlow, and TensorFlow
-2.10 is the last release with GPU support on native Windows, which in turn
-requires Python 3.10 and numpy < 2. It therefore runs in its own environment.
-
-```bash
-conda create -n saans python=3.10 -y
-conda activate saans
-conda install -c conda-forge cudatoolkit=11.2 cudnn=8.1.0 -y
-pip install -r requirements.txt
-uvicorn server.app:app --port 8000
-```
-
-Do not `pip install chromadb` into this environment. It upgrades protobuf past
-what TensorFlow 2.10 accepts and the X-ray model stops loading.
-
-Check both models came up:
-
-```bash
-curl http://localhost:8000/api/health
-curl http://localhost:8000/api/assistant/status
-```
-
-`"demo_mode": false` means the weights were found. `true` means the service is returning a fixed stand-in response, which is what a fresh checkout does, since the 70 MB weights file is not in the repository. Set `SAANS_DEMO_MODE=1` to force that behaviour deliberately.
-
-If weights are present but TensorFlow is missing, the service refuses to start and says so, rather than failing later on each upload.
-
-### Weights, and why they are not in the repository
-
-Three trained files are gitignored. Git keeps every version of a binary forever,
-so committing them makes the repository permanently large and slow to clone, and
-the encoder is close to GitHub's 100 MB per-file limit anyway.
-
-**A fresh clone runs without any of them.** Nothing crashes; the parts that need
-a model degrade and say so:
-
-| File | Size | Without it |
-| --- | --- | --- |
-| `saans_xray_densenet121.h5` | 28 MB | X-ray falls back to `DEMO_MODE` — a fixed stand-in response |
-| `cough_detector.joblib` | 4 MB | The energy-based burst detector answers alone, less reliably |
-| `embedding/onnx/model.onnx` | 86 MB | Downloads itself on first use — nothing to do |
-| `reranker/onnx/model.onnx` | 87 MB | Downloads itself on first use; without it retrieval falls back to plain vector order |
-
-The `.json` sidecars, the handbook index (`who_index.npz`) and the training plots
-**are** committed, so metrics and citations survive a clone.
-
-To get the real models: train them (see [Training](#training)), or copy the two
-small files from someone who has. For a team, attaching them to a GitHub Release
-is tidier than sending them around — free, up to 2 GB per file, and no repository
-bloat. They go in `backend/models/`.
-
-Check which mode you are in:
-
-```bash
-curl http://localhost:8000/api/health
-```
-
-`"demo_mode": false` means the real X-ray model loaded; `true` means the stand-in.
-`SAANS_DEMO_MODE=1` forces the stand-in, `0` forces the real model.
-
-### Installing it on a phone
-
-Saans is a progressive web app. Opened in a mobile browser it offers **Add to
-Home Screen**, and from then on it launches full screen from its own icon with
-no address bar.
-
-Two conditions have to hold, and the first one catches people out:
-
-**It must be served over HTTPS.** Browsers refuse to register a service worker
-or offer the install prompt on a plain `http://` origin. `localhost` is the one
-exception, so a phone pointed at `http://192.168.1.x:5173` gets a website and no
-install prompt. Either put a tunnel in front of the server (Cloudflare Tunnel
-and Tailscale Funnel both give a free HTTPS hostname without a domain), or
-forward the port over USB with `adb reverse tcp:5173 tcp:5173`, which makes the
-phone's own `localhost` reach the machine.
-
-**It must be the production build.** The service worker is not generated by
-`npm run dev`. Use `docker compose up -d`, or without Docker:
-
-```bash
-npm run build
-uvicorn server.app:app --port 8000
-```
-
-Either way the API and the page come from one origin, which is what lets the
-service worker's scope cover both the page and the requests it makes.
-
-What survives with no network:
-
-| Works offline | Needs the server |
-| --- | --- |
-| Danger signs, symptoms, vitals, Sum A + Sum B, the result and referral code | Chest X-ray analysis |
-| Both languages and the full right-to-left layout | Cough analysis |
-| The app shell, launched from the icon with nothing running | Ask WHO Assistant |
-
-The three screens that need the server say so plainly when it is unreachable,
-and distinguish "no internet" from "server not running" — see `src/lib/network.js`.
-The service worker never caches `/api`, so a stale answer can't be mistaken for
-a live one.
-
-Fonts are self-hosted rather than loaded from Google, which matters more than it
-sounds: Android ships no Nastaliq face, so a failed CDN request would leave every
-Urdu screen in a broken fallback. Both they and the icons are generated:
-
-```bash
-python scripts/fetch_fonts.py   # public/fonts/ + src/fonts.css
-python scripts/make_icons.py    # public/icons/ + public/favicon.ico
-```
-
-`make_icons.py` redraws the same lung mark used on the welcome screen, so the
-icon and the app are one shape. If that SVG changes, the paths at the top of the
-script need the same change.
-
-## Training
-
-Three separate jobs, all runnable on a laptop. Only the first needs a GPU.
-
-**X-ray** — `notebooks/train_xray_model_local.ipynb`. Downloads roughly 9 GB
-across the four datasets, decodes and caches them, trains in two phases, picks a
-threshold, and writes the weights and metrics. The Kaggle sets need an API token;
-the notebook explains where to put it. On an RTX 3050 laptop GPU: about 40
-minutes downloading, a few minutes decoding, 60 to 90 minutes training. The
-decoded image cache persists, so later runs go straight to training.
-
-**Cough** — `python notebooks/train_cough_model.py`. Downloads COUGHVID (2.3 GB),
-decodes it through a bundled static ffmpeg, holds every child out of training,
-and scores the result by age band. A few minutes on CPU once the audio is local.
-
-**Handbook index** — `python notebooks/build_who_index.py`. Chunks the PDF and
-embeds 1,055 passages, splitting each page where a table caption begins so the
-rows keep the line that says what they are. Under a minute after the encoder
-downloads.
-
-## Layout
-
-```
-src/
-  screens/        one component per step in the flow
-  data/
-    dangerSigns.js  the ten IMCI questions
-    scoring.js      WHO Algorithm A and B weights
-    vitals.js       age-banded respiratory and heart rate thresholds
-  i18n/           English and Urdu dictionaries
-  lib/network.js  tells "no internet" apart from "server not running"
-  fonts.css       generated — @font-face for the self-hosted faces
-  components/
-    Guide.jsx     the picture attached to a question, and its viewer
-  data/guides.js  which picture belongs to which question
-  assets/guides/  the built WebP artwork
-public/
-  fonts/          Inter, Sora, Noto Nastaliq Urdu (variable, one file each)
-  icons/          app icons, including the maskable variant
-scripts/          fetch_fonts.py, make_icons.py, build_guides.py
-server/
-  app.py          FastAPI endpoints, .env loader
-  vision.py       X-ray model loading, Grad-CAM, heatmap rendering
-  audio.py        cough features, burst detection, trained cough detector
-  rag.py          handbook chunking, embeddings, retrieval, grounded answering
-backend/models/   weights, metrics, and the handbook search index
-notebooks/        train_xray_model_local.ipynb, train_cough_model.py,
-                  build_who_index.py
-books/            the WHO handbook this implements
-.env              your Groq key — gitignored, see .env.example
-```
+Everything else — the screening, the score, the X-ray model, the cough
+detector — works without it. Rebuilding the search index and the rest of the
+operational detail is in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Limitations
 

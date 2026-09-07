@@ -126,8 +126,26 @@ safe to act on: three tablets of what, in which phase? Every such answer must \
 name the weight band it was read from, name the medicines, and separate the \
 intensive phase from the continuation phase. If a medicine is only added for \
 some children, say that rather than listing it as routine.
+- Write plain text. The screen shows your answer exactly as written and does \
+not render markdown, so asterisks, hashes and backticks appear as themselves. \
+Use "-" for a list and nothing for emphasis.
 - Do not add a disclaimer; the screen already shows one.
 """
+
+# Belt and braces for the rule above: models reach for **bold** by habit, and
+# "give **3 tablets**" on a clinical screen reads as a rendering bug.
+_MARKDOWN_NOISE = [
+    (re.compile(r"\*\*(.+?)\*\*", re.S), r"\1"),   # **bold**
+    (re.compile(r"__(.+?)__", re.S), r"\1"),       # __bold__
+    (re.compile(r"(?m)^\s{0,3}#{1,6}\s+"), ""),    # ### headings
+    (re.compile(r"`([^`]+)`"), r"\1"),             # `code`
+]
+
+
+def strip_markdown(text):
+    for pattern, replacement in _MARKDOWN_NOISE:
+        text = pattern.sub(replacement, text)
+    return text.strip()
 
 
 # --------------------------------------------------------------------------
@@ -557,7 +575,7 @@ def _call_groq(question, passages):
             f"Groq returned no answer (finish_reason="
             f"{choice.get('finish_reason')}). Raise max_tokens in server/rag.py."
         )
-    return answer
+    return strip_markdown(answer)
 
 
 def _post_groq(payload):
