@@ -64,6 +64,12 @@ export const en = {
       'Ask the carer first. Stored without any name or location, and used only to build a dataset for children this young, which does not exist yet. Screening works exactly the same either way.',
   },
 
+  install: {
+    action: 'Install Saans',
+    iosHint:
+      'To install: tap Share, then Add to Home Screen.',
+  },
+
   guide: {
     howToCheck: 'How to check',
     close: 'Close',
@@ -295,6 +301,8 @@ export const en = {
     uploadAria: 'Upload chest X-ray image',
     analyze: 'Analyze X-ray',
     analyzing: 'Analyzing…',
+    analyzingSlow:
+      'Still analyzing. The first X-ray of a session takes longer while the model loads.',
     retake: 'Retake',
     failed:
       'Analysis failed: {error}. Check that the vision service is running.',

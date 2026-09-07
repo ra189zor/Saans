@@ -3,9 +3,14 @@ import Screen, { COLUMN } from '../components/Screen.jsx'
 import TopBar from '../components/TopBar.jsx'
 import BackLink from '../components/BackLink.jsx'
 import { useI18n } from '../i18n/index.jsx'
-import { describeFetchError, isConnectionError } from '../lib/network.js'
+import {
+  describeFetchError,
+  isConnectionError,
+  readErrorDetail,
+} from '../lib/network.js'
 import { useCollectionEnabled } from '../lib/collection.js'
 import ConsentToggle from '../components/ConsentToggle.jsx'
+import Spinner from '../components/Spinner.jsx'
 
 /**
  * Camera capture with an upload fallback. Many field devices have no usable
@@ -27,6 +32,10 @@ export default function XrayScanScreen({
   const [error, setError] = useState(null)
   const collecting = useCollectionEnabled()
   const [consent, setConsent] = useState(false)
+  /* The first analysis of a session loads TensorFlow and the weights, which
+     takes tens of seconds. After a few, say so, rather than leaving the
+     worker to guess whether it has hung. */
+  const [slow, setSlow] = useState(false)
   const { t } = useI18n()
 
   useEffect(() => {
@@ -100,6 +109,8 @@ export default function XrayScanScreen({
     if (!capture) return
     setStatus('analyzing')
     setError(null)
+    setSlow(false)
+    const slowTimer = setTimeout(() => setSlow(true), 4000)
 
     const body = new FormData()
     body.append('image', capture.blob, 'xray.jpg')
@@ -109,10 +120,7 @@ export default function XrayScanScreen({
 
     try {
       const response = await fetch('/api/vision/xray', { method: 'POST', body })
-      if (!response.ok) {
-        const detail = await response.text()
-        throw new Error(`${response.status} ${detail.slice(0, 120)}`)
-      }
+      if (!response.ok) throw new Error(await readErrorDetail(response))
       const analysis = await response.json()
       onAnalyzed({ analysis, capturedDataUrl: capture.dataUrl })
     } catch (err) {
@@ -124,6 +132,9 @@ export default function XrayScanScreen({
           ? describeFetchError(err, t)
           : t('xrayScan.failed', { error: String(err.message || err) }),
       )
+    } finally {
+      clearTimeout(slowTimer)
+      setSlow(false)
     }
   }
 
@@ -186,6 +197,16 @@ alt={t('xrayScan.capturedAlt')}
           </div>
         )}
 
+        {status === 'analyzing' && (
+          <p
+            aria-live="polite"
+            className="mt-4 flex items-center gap-3 text-sm leading-relaxed text-muted md:text-base"
+          >
+            <Spinner className="h-4 w-4 shrink-0 text-teal" />
+            {slow ? t('xrayScan.analyzingSlow') : t('xrayScan.analyzing')}
+          </p>
+        )}
+
         {status === 'error' && (
           <p
             aria-live="polite"
@@ -209,9 +230,14 @@ aria-label={t('xrayScan.uploadAria')}
         {capture ? (
           <>
             <PrimaryButton onClick={analyze} disabled={status === 'analyzing'}>
-              {status === 'analyzing'
-                ? t('xrayScan.analyzing')
-                : t('xrayScan.analyze')}
+              {status === 'analyzing' ? (
+                <span className="flex items-center gap-3">
+                  <Spinner />
+                  {t('xrayScan.analyzing')}
+                </span>
+              ) : (
+                t('xrayScan.analyze')
+              )}
             </PrimaryButton>
             <SecondaryButton
               onClick={() => {

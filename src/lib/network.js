@@ -30,3 +30,37 @@ export function describeFetchError(error, t) {
   if (!isConnectionError(error)) return String(error?.message || error)
   return navigator.onLine ? t('common.serverUnreachable') : t('common.offline')
 }
+
+/**
+ * What the server said went wrong, in full.
+ *
+ * FastAPI puts the reason in `detail`, and both capture screens used to show
+ * the raw body cut to 120 characters — of which `{"detail":"Could not analyze
+ * image: ` was already 36. A real Keras load failure was truncated to nothing
+ * useful, which turned a one-line diagnosis into an afternoon. Validation
+ * errors arrive as a list rather than a string, so those are stringified
+ * rather than dropped.
+ */
+export async function readErrorDetail(response) {
+  let body = ''
+  try {
+    body = await response.text()
+  } catch {
+    /* no body to read */
+  }
+
+  let detail = body
+  try {
+    const parsed = JSON.parse(body)
+    if (parsed?.detail !== undefined) {
+      detail =
+        typeof parsed.detail === 'string'
+          ? parsed.detail
+          : JSON.stringify(parsed.detail)
+    }
+  } catch {
+    /* not JSON; the raw body is the best available */
+  }
+
+  return detail ? `${response.status} ${detail}` : String(response.status)
+}

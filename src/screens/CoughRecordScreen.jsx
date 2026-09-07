@@ -3,7 +3,7 @@ import Screen, { COLUMN } from '../components/Screen.jsx'
 import TopBar from '../components/TopBar.jsx'
 import BackLink from '../components/BackLink.jsx'
 import { useI18n } from '../i18n/index.jsx'
-import { describeFetchError } from '../lib/network.js'
+import { describeFetchError, readErrorDetail } from '../lib/network.js'
 import { useCollectionEnabled } from '../lib/collection.js'
 import ConsentToggle from '../components/ConsentToggle.jsx'
 
@@ -179,10 +179,7 @@ export default function CoughRecordScreen({
 
     try {
       const response = await fetch('/api/audio/cough', { method: 'POST', body })
-      if (!response.ok) {
-        const detail = await response.text()
-        throw new Error(`${response.status} ${detail.slice(0, 120)}`)
-      }
+      if (!response.ok) throw new Error(await readErrorDetail(response))
       setResult(await response.json())
       setPhase('done')
     } catch (err) {

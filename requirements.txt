@@ -11,7 +11,13 @@ python-multipart>=0.0.9
 # On native Windows, 2.10 is the last release with GPU support, and it needs
 # Python 3.10 and numpy<2. That is the combination the training notebook uses.
 tensorflow>=2.10,<2.11 ; sys_platform == "win32"
-tensorflow>=2.15 ; sys_platform != "win32"
+# Upper bound, and it matters. The weights were saved by TensorFlow 2.10, which
+# is Keras 2. From TensorFlow 2.16 onwards tf.keras IS Keras 3, which refuses
+# to load a legacy Keras 2 .h5 - and because the model loads lazily on the
+# first request, the container starts, reports healthy, says demo_mode false,
+# and then returns 422 on every X-ray. An unpinned ">=2.15" installed 2.21 and
+# did exactly that. 2.15 is the last release that is still Keras 2.
+tensorflow>=2.15,<2.16 ; sys_platform != "win32"
 numpy<2 ; sys_platform == "win32"
 
 # Cough analysis. numpy alone covers the signal processing in server/audio.py;

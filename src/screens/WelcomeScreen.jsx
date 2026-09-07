@@ -2,6 +2,7 @@ import { Fragment } from 'react'
 import Screen, { COLUMN } from '../components/Screen.jsx'
 import TopBar from '../components/TopBar.jsx'
 import { useI18n } from '../i18n/index.jsx'
+import InstallButton from '../components/InstallButton.jsx'
 
 export default function WelcomeScreen({ onStart }) {
   const { lang, t } = useI18n()
@@ -36,6 +37,12 @@ export default function WelcomeScreen({ onStart }) {
       </main>
 
       <footer className={`${COLUMN} pb-8 md:pb-12`}>
+        {/* Renders nothing unless the browser says the app can be
+            installed, so it never offers something it cannot do. */}
+        <div className="mb-3 md:mb-4">
+          <InstallButton />
+        </div>
+
         <button
           type="button"
           onClick={onStart}
