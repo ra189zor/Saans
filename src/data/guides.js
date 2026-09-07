@@ -9,6 +9,11 @@
  * `dangerSigns.js`, plus the four asked outside triage. A question with no
  * entry here simply renders without a guide.
  *
+ * Each entry lists its pictures per language. Nothing falls back silently: a
+ * language with no entry shows no picture, because these charts are dense with
+ * text and an English one under an Urdu question is worse than none. Adding a
+ * third language means adding its key here and nothing else.
+ *
  * Artwork is built from the originals by `scripts/build_guides.py`; alt text
  * lives in the dictionaries under `guide.alt.<key>`.
  */
@@ -23,28 +28,65 @@ import lymphNodes from '../assets/guides/lymph-nodes.webp'
 import chestIndrawing from '../assets/guides/chest-indrawing.webp'
 import respiratoryRate from '../assets/guides/respiratory-rate.webp'
 
-/** Each entry is the pictures for one question, with its own alt-text key. */
+import seizureUr from '../assets/guides/ur/seizure.webp'
+import stridorUr from '../assets/guides/ur/stridor.webp'
+import dehydrationUr from '../assets/guides/ur/dehydration.webp'
+import pallorUr from '../assets/guides/ur/pallor.webp'
+import neckStiffnessUr from '../assets/guides/ur/neck-stiffness.webp'
+import breathingSevereUr from '../assets/guides/ur/breathing-severe.webp'
+import muacUr from '../assets/guides/ur/muac.webp'
+import lymphNodesUr from '../assets/guides/ur/lymph-nodes.webp'
+
+/** Each entry: the alt-text key, then the pictures for each language. */
 export const GUIDES = {
   // Danger signs, asked one at a time in triage.
-  seizure: [{ src: seizure, alt: 'seizure' }],
-  // Key must match the danger sign id in dangerSigns.js.
-  indrawing: [{ src: chestIndrawing, alt: 'indrawing' }],
-  stridor: [{ src: stridor, alt: 'stridor' }],
-  dehydration: [{ src: dehydration, alt: 'dehydration' }],
-  pallor: [{ src: pallor, alt: 'pallor' }],
-  neckStiffness: [{ src: neckStiffness, alt: 'neckStiffness' }],
+  seizure: { alt: 'seizure', en: [seizure], ur: [seizureUr] },
+  stridor: { alt: 'stridor', en: [stridor], ur: [stridorUr] },
+  dehydration: { alt: 'dehydration', en: [dehydration], ur: [dehydrationUr] },
+  pallor: { alt: 'pallor', en: [pallor], ur: [pallorUr] },
+  neckStiffness: {
+    alt: 'neckStiffness',
+    en: [neckStiffness],
+    ur: [neckStiffnessUr],
+  },
+
+  // Chest indrawing is the same file in both languages, and deliberately so:
+  // it is four numbered photographs and two arrows with no writing anywhere in
+  // it, so there is nothing to translate. Shared rather than duplicated.
+  indrawing: { alt: 'indrawing', en: [chestIndrawing], ur: [chestIndrawing] },
 
   // The severity check that follows chest indrawing.
-  breathingSevere: [{ src: breathingSevere, alt: 'breathingSevere' }],
+  breathingSevere: {
+    alt: 'breathingSevere',
+    en: [breathingSevere],
+    ur: [breathingSevereUr],
+  },
 
   // Risk profile.
-  muac: [{ src: muac, alt: 'muac' }],
+  muac: { alt: 'muac', en: [muac], ur: [muacUr] },
 
   // Symptom matrix.
-  lymphNodes: [{ src: lymphNodes, alt: 'lymphNodes' }],
-  respiratoryRate: [{ src: respiratoryRate, alt: 'respiratoryRate' }],
+  lymphNodes: { alt: 'lymphNodes', en: [lymphNodes], ur: [lymphNodesUr] },
+
+  // No `ur`, on purpose. This picture carries its instruction in English
+  // typography — "Respiratory rate", "The worker types in breaths per minute",
+  // "In... Out..." — so in Urdu it is not shown at all rather than shown in the
+  // wrong language. Drop an Urdu version into the build script and it appears.
+  respiratoryRate: { alt: 'respiratoryRate', en: [respiratoryRate] },
 }
 
-export function hasGuide(key) {
-  return Boolean(key && GUIDES[key])
+/**
+ * Pictures for a question in the language on screen, or null if there are
+ * none. Returned as {src, alt} so the viewer needs to know nothing about
+ * languages.
+ */
+export function guideImages(key, lang) {
+  const guide = GUIDES[key]
+  const sources = guide?.[lang]
+  if (!sources?.length) return null
+  return sources.map((src) => ({ src, alt: guide.alt }))
+}
+
+export function hasGuide(key, lang) {
+  return guideImages(key, lang) !== null
 }

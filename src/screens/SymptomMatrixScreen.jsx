@@ -45,7 +45,7 @@ export default function SymptomMatrixScreen({
   onScanXray,
   onRecordCough,
 }) {
-  const { t } = useI18n()
+  const { lang, t } = useI18n()
 
   const {
     coughDays,
@@ -122,7 +122,7 @@ export default function SymptomMatrixScreen({
                 checked={flags[id]}
                 onChange={() => setFlag(id, !flags[id])}
               />
-              {hasGuide(id) && (
+              {hasGuide(id, lang) && (
                 <div className="mt-1 ps-1">
                   <GuideLink guideKey={id} />
                 </div>

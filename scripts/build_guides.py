@@ -43,45 +43,78 @@ GUIDES = [
     ("2.png", "respiratory-rate", (0.0, 0.0, 0.565, 1.0)),
 ]
 
+# The Urdu set, under "urdu assstes". Filenames are export timestamps and say
+# nothing about content, so each was opened and matched to its question rather
+# than trusted by name or order.
+#
+# Eight, not ten. Chest indrawing has no text in it at all - four numbered
+# photographs and two arrows - so the same file serves both languages and no
+# Urdu version was needed. Respiratory rate does carry English text, so it has
+# no Urdu counterpart and is simply not shown in Urdu.
+URDU_DIR = os.path.join("src", "assets", "urdu assstes")
+
+URDU_GUIDES = [
+    ("ChatGPT Image Sep 7, 2026, 06_17_06 PM.png", "seizure"),
+    ("ChatGPT Image Sep 7, 2026, 06_19_05 PM.png", "neck-stiffness"),
+    ("ChatGPT Image Sep 7, 2026, 06_20_59 PM.png", "dehydration"),
+    ("ChatGPT Image Sep 7, 2026, 06_22_37 PM.png", "pallor"),
+    ("ChatGPT Image Sep 7, 2026, 06_27_56 PM.png", "muac"),
+    ("ChatGPT Image Sep 7, 2026, 06_29_42 PM.png", "stridor"),
+    ("ChatGPT Image Sep 7, 2026, 06_32_18 PM.png", "lymph-nodes"),
+    ("ChatGPT Image Sep 7, 2026, 06_40_56 PM.png", "breathing-severe"),
+]
+
+
+def convert(src, out, crop=None):
+    """One source image to a web-sized WebP. Returns (before, after) bytes."""
+    before = os.path.getsize(src)
+    image = Image.open(src).convert("RGB")
+
+    if crop:
+        w, h = image.size
+        left, top, right, bottom = crop
+        image = image.crop(
+            (int(w * left), int(h * top), int(w * right), int(h * bottom))
+        )
+
+    if image.width > MAX_WIDTH:
+        ratio = MAX_WIDTH / image.width
+        image = image.resize((MAX_WIDTH, round(image.height * ratio)), Image.LANCZOS)
+
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    image.save(out, "WEBP", quality=QUALITY, method=6)
+    return before, os.path.getsize(out), image.size
+
 
 def main():
-    os.makedirs(OUT_DIR, exist_ok=True)
     before = after = 0
 
+    print("English:")
     for filename, name, crop in GUIDES:
         src = os.path.join(SRC_DIR, filename)
         if not os.path.exists(src):
             print(f"  !! missing {src}")
             continue
-
-        before += os.path.getsize(src)
-        image = Image.open(src).convert("RGB")
-
-        if crop:
-            w, h = image.size
-            left, top, right, bottom = crop
-            image = image.crop(
-                (int(w * left), int(h * top), int(w * right), int(h * bottom))
-            )
-
-        if image.width > MAX_WIDTH:
-            ratio = MAX_WIDTH / image.width
-            image = image.resize(
-                (MAX_WIDTH, round(image.height * ratio)), Image.LANCZOS
-            )
-
         out = os.path.join(OUT_DIR, f"{name}.webp")
-        image.save(out, "WEBP", quality=QUALITY, method=6)
-        after += os.path.getsize(out)
+        b, a, size = convert(src, out, crop)
+        before, after = before + b, after + a
+        print(f"  {filename:8s} -> {name + '.webp':26s} "
+              f"{size[0]}x{size[1]}  {a / 1024:6.1f} KB")
 
-        print(
-            f"  {filename:8s} -> {name + '.webp':26s} "
-            f"{image.width}x{image.height}  {os.path.getsize(out) / 1024:6.1f} KB"
-        )
+    print("\nUrdu:")
+    for filename, name in URDU_GUIDES:
+        src = os.path.join(URDU_DIR, filename)
+        if not os.path.exists(src):
+            print(f"  !! missing {src}")
+            continue
+        out = os.path.join(OUT_DIR, "ur", f"{name}.webp")
+        b, a, size = convert(src, out)
+        before, after = before + b, after + a
+        print(f"  {name + '.webp':26s} {size[0]}x{size[1]}  {a / 1024:6.1f} KB")
 
     print(
-        f"\n{len(GUIDES)} guides: {before / 1024 / 1024:.1f} MB -> "
-        f"{after / 1024:.0f} KB"
+        f"\n{len(GUIDES)} English + {len(URDU_GUIDES)} Urdu: "
+        f"{before / 1024 / 1024:.1f} MB -> {after / 1024:.0f} KB"
     )
 
 

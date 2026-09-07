@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { GUIDES } from '../data/guides.js'
+import { guideImages } from '../data/guides.js'
 import { useI18n } from '../i18n/index.jsx'
 
 /**
@@ -31,9 +31,9 @@ function altFor(image, t) {
 
 /** A preview under the question. Tapping it opens the full guide. */
 export function GuideImage({ guideKey }) {
-  const { t } = useI18n()
+  const { lang, t } = useI18n()
   const [open, setOpen] = useState(false)
-  const images = GUIDES[guideKey]
+  const images = guideImages(guideKey, lang)
   if (!images) return null
 
   return (
@@ -67,9 +67,9 @@ export function GuideImage({ guideKey }) {
 
 /** One line, for screens with no room for a preview. */
 export function GuideLink({ guideKey }) {
-  const { t } = useI18n()
+  const { lang, t } = useI18n()
   const [open, setOpen] = useState(false)
-  const images = GUIDES[guideKey]
+  const images = guideImages(guideKey, lang)
   if (!images) return null
 
   return (

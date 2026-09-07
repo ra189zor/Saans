@@ -24,7 +24,20 @@ English and Urdu, with full right-to-left layout.
 <p align="center"><em>Real screens, real output — the score, the guides and the
 assistant's answer are what the app produces, not mockups.</em></p>
 
-## Try it
+## Live demo
+
+**<https://surround-confidence-lectures-indexed.trycloudflare.com>**
+
+Open it on a phone. Everything works: the WHO screening, the chest X-ray model,
+the cough recording and the handbook assistant. Chrome and Edge will offer
+**Install Saans** on the first screen, which puts it on the home screen and
+launches it full screen; on iPhone use Share → Add to Home Screen.
+
+It is served from a laptop over a Cloudflare tunnel, so the address changes if
+that tunnel is restarted. If the link is dead, run it yourself — one command,
+below.
+
+## Try it locally
 
 ```bash
 cp .env.example .env          # add a free Groq key for the assistant

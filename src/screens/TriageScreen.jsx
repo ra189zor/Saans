@@ -17,7 +17,7 @@ export default function TriageScreen({
   const [detected, setDetected] = useState({})
   const question = questions[index]
   const total = questions.length
-  const { t } = useI18n()
+  const { lang, t } = useI18n()
 
   function answer(isYes) {
     // Each sign declares which answer fires it — Q1 is inverted, so a
@@ -62,7 +62,9 @@ export default function TriageScreen({
               {t(`dangerSigns.${question.id}.text`)}
             </h1>
 
-            {hasGuide(question.id) && <GuideImage guideKey={question.id} />}
+            {hasGuide(question.id, lang) && (
+              <GuideImage guideKey={question.id} />
+            )}
           </div>
         </div>
       </main>
