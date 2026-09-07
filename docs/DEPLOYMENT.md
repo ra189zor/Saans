@@ -235,3 +235,32 @@ notebooks/        train_xray_model_local.ipynb, train_cough_model.py,
 books/            the WHO handbook this implements
 .env              your Groq key — gitignored, see .env.example
 ```
+
+## Collecting captures
+
+Off by default. To keep the cough recordings and films that carers agree to,
+set this in `.env` and recreate the container:
+
+```bash
+SAANS_COLLECT=1
+```
+
+```bash
+docker compose up -d
+```
+
+A consent switch then appears on the capture screens, off each time, and only
+what the worker confirms is written to `./backend/data` — mounted as a volume,
+so it is on the host where you can back it up and delete it. See
+[Keeping what is captured](../README.md#keeping-what-is-captured) for the
+layout and what is deliberately not recorded.
+
+Check what is being kept:
+
+```bash
+curl http://localhost:8042/api/health
+```
+
+Before turning this on for real children, you need a consent script the carer
+actually understands, a retention period, and somewhere safer than a laptop to
+put the files. The switch is the easy part.

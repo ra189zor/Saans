@@ -58,6 +58,12 @@ export const en = {
     progress: 'Question {current} of {total}',
   },
 
+  consent: {
+    label: 'Keep this recording for research?',
+    detail:
+      'Ask the carer first. Stored without any name or location, and used only to build a dataset for children this young, which does not exist yet. Screening works exactly the same either way.',
+  },
+
   guide: {
     howToCheck: 'How to check',
     close: 'Close',

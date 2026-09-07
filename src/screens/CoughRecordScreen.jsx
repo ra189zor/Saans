@@ -4,6 +4,8 @@ import TopBar from '../components/TopBar.jsx'
 import BackLink from '../components/BackLink.jsx'
 import { useI18n } from '../i18n/index.jsx'
 import { describeFetchError } from '../lib/network.js'
+import { useCollectionEnabled } from '../lib/collection.js'
+import ConsentToggle from '../components/ConsentToggle.jsx'
 
 const RECORD_SECONDS = 10
 const TARGET_SAMPLE_RATE = 16000
@@ -26,7 +28,13 @@ const TARGET_SAMPLE_RATE = 16000
  * a tablet with no microphone or a refused permission must not be able to
  * trap the worker one step short of the score.
  */
-export default function CoughRecordScreen({ onDone, onBack, onSkip, lastStep = false }) {
+export default function CoughRecordScreen({
+  ageYears,
+  onDone,
+  onBack,
+  onSkip,
+  lastStep = false,
+}) {
   const { t } = useI18n()
 
   const streamRef = useRef(null)
@@ -39,6 +47,8 @@ export default function CoughRecordScreen({ onDone, onBack, onSkip, lastStep = f
   const [recording, setRecording] = useState(null) // { wavBlob, url }
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
+  const collecting = useCollectionEnabled()
+  const [consent, setConsent] = useState(false)
 
   useEffect(() => {
     return () => {
@@ -163,6 +173,9 @@ export default function CoughRecordScreen({ onDone, onBack, onSkip, lastStep = f
 
     const body = new FormData()
     body.append('audio', recording.wavBlob, 'cough.wav')
+    // Kept only if the carer agreed to this recording.
+    body.append('consent', consent ? 'true' : 'false')
+    if (ageYears != null) body.append('age_years', String(ageYears))
 
     try {
       const response = await fetch('/api/audio/cough', { method: 'POST', body })
@@ -223,6 +236,14 @@ export default function CoughRecordScreen({ onDone, onBack, onSkip, lastStep = f
         {phase === 'recorded' && recording && (
           <section className="mt-8">
             <audio src={recording.url} controls className="w-full" />
+
+            {/* Asked once the recording exists and can be played back, so the
+                carer is agreeing to something they have actually heard. */}
+            {collecting && (
+              <div className="mt-4">
+                <ConsentToggle checked={consent} onChange={setConsent} />
+              </div>
+            )}
           </section>
         )}
 

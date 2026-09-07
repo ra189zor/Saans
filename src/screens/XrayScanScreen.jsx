@@ -4,6 +4,8 @@ import TopBar from '../components/TopBar.jsx'
 import BackLink from '../components/BackLink.jsx'
 import { useI18n } from '../i18n/index.jsx'
 import { describeFetchError, isConnectionError } from '../lib/network.js'
+import { useCollectionEnabled } from '../lib/collection.js'
+import ConsentToggle from '../components/ConsentToggle.jsx'
 
 /**
  * Camera capture with an upload fallback. Many field devices have no usable
@@ -11,6 +13,7 @@ import { describeFetchError, isConnectionError } from '../lib/network.js'
  * rather than being a hidden last resort.
  */
 export default function XrayScanScreen({
+  ageYears,
   onAnalyzed,
   onBack,
 }) {
@@ -22,6 +25,8 @@ export default function XrayScanScreen({
   const [capture, setCapture] = useState(null) // { dataUrl, blob }
   const [status, setStatus] = useState('idle') // idle | analyzing | error
   const [error, setError] = useState(null)
+  const collecting = useCollectionEnabled()
+  const [consent, setConsent] = useState(false)
   const { t } = useI18n()
 
   useEffect(() => {
@@ -98,6 +103,9 @@ export default function XrayScanScreen({
 
     const body = new FormData()
     body.append('image', capture.blob, 'xray.jpg')
+    // The film is kept only if the carer agreed to this one.
+    body.append('consent', consent ? 'true' : 'false')
+    if (ageYears != null) body.append('age_years', String(ageYears))
 
     try {
       const response = await fetch('/api/vision/xray', { method: 'POST', body })
@@ -169,6 +177,14 @@ alt={t('xrayScan.capturedAlt')}
             {t('xrayScan.guidance')}
           </p>
         </div>
+
+        {/* Asked while the film is on screen and before it is sent, which is
+            the only moment the answer means anything. */}
+        {collecting && capture && (
+          <div className="mt-4">
+            <ConsentToggle checked={consent} onChange={setConsent} />
+          </div>
+        )}
 
         {status === 'error' && (
           <p

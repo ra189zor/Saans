@@ -116,15 +116,16 @@ thing the algorithm scores. The slider is.
 Plainly: today the recording does very little for the child in front of you. It
 is held in `App.jsx` and read nowhere else. Two things justify keeping it.
 
-**It is how a paediatric cough model would get built.** COUGHVID holds 88
-recordings from under-fives out of 34,434 — that is the entire public supply
-for the age band Saans screens, and 59 of them survive decoding and quality
-filtering into the test set below. No amount of modelling fixes a corpus that
-small. The only route to a real under-five cough model is collecting recordings
-in the field, each one labelled against the screening outcome captured beside
-it. An app that records a cough during screening is how that dataset starts to
-exist; the model shipped here is the placeholder that makes the capture step
-worth performing.
+**It is how a paediatric cough model gets built.** COUGHVID holds 88 recordings
+from under-fives out of 34,434 — that is the entire public supply for the age
+band Saans screens, and 59 of them survive decoding and quality filtering into
+the test set below. No amount of modelling fixes a corpus that small. The only
+route to a real under-five cough model is collecting recordings in the field,
+each one labelled against the screening outcome captured beside it.
+
+That collection is built, and it is described in full under
+[Keeping what is captured](#keeping-what-is-captured) — including why it is off
+until a deployment asks for it and why the health worker is asked every time.
 
 **It checks the capture.** The detector confirms a cough was actually recorded
 rather than ten seconds of room noise — worth knowing before that clip is
@@ -146,6 +147,46 @@ So the honest summary is that this feature is infrastructure for a later
 version, not a diagnostic aid in this one. It is listed that way in
 [Limitations](#limitations) and on the roadmap, and it should be described that
 way to anyone evaluating the project.
+
+## Keeping what is captured
+
+A cough recording and a chest film are medical data belonging to somebody
+else's child, so three things had to be true before any of it was written down.
+
+**Off unless a deployment asks for it.** Collection needs `SAANS_COLLECT=1`.
+Clone this and run it and nothing is stored — the directory is not even
+created. Nobody starts collecting children's data by accident.
+
+**Consent per capture, not per install.** Even with collection on, a sample is
+kept only when the health worker confirms the carer agreed to *this* recording.
+The switch is off again next time; agreeing to one cough is not agreeing to the
+next. Where collection is disabled the question never appears, because an
+answer could not be acted on.
+
+**Nothing identifying is written.** Age in years, what the model said, and the
+screening outcome. No name, no free text, no location, no device id. Filenames
+are random rather than derived from anything about the child.
+
+```
+backend/data/cough/2026-09-07/<id>.wav      the recording
+backend/data/cough/2026-09-07/<id>.json     age, analysis, screening outcome
+backend/data/xray/2026-09-07/<id>.jpg
+backend/data/xray/2026-09-07/<id>.json
+```
+
+The sidecar is the part that matters. Audio on its own is not a dataset; audio
+with the score, the algorithm used and the treat decision beside it is the
+beginning of one. Captures happen before the total is known — a film is read
+several screens earlier — so the outcome is attached when the result appears.
+
+Be clear about what that label is worth: it is the **WHO screening outcome, not
+a confirmed diagnosis**. Confirmation needs bacteriology that arrives weeks
+later, if at all. It is a weak label, and a weak label collected in the field
+from under-fives is still more than the 59 recordings that exist today.
+
+`/api/health` reports how many samples are held and how many carry an outcome.
+The directory is gitignored and mounted as a volume, so it is somewhere you can
+back up and delete from — never inside an image or a commit.
 
 Two components, and they are not equally strong:
 

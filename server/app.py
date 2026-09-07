@@ -2,11 +2,11 @@
 
 import os
 
-from fastapi import Body, FastAPI, File, HTTPException, UploadFile
+from fastapi import Body, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from . import rag
+from . import rag, storage
 from .audio import analyze as analyze_cough
 from .vision import DEMO_MODE, analyze
 
@@ -50,11 +50,15 @@ app.add_middleware(
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "demo_mode": DEMO_MODE}
+    return {"status": "ok", "demo_mode": DEMO_MODE, "collection": storage.stats()}
 
 
 @app.post("/api/vision/xray")
-async def vision_xray(image: UploadFile = File(...)):
+async def vision_xray(
+    image: UploadFile = File(...),
+    consent: bool = Form(False),
+    age_years: int = Form(None),
+):
     if not (image.content_type or "").startswith("image/"):
         raise HTTPException(status_code=415, detail="Expected an image upload.")
 
@@ -65,15 +69,31 @@ async def vision_xray(image: UploadFile = File(...)):
         raise HTTPException(status_code=413, detail="Image too large.")
 
     try:
-        return analyze(data)
+        result = analyze(data)
     except HTTPException:
         raise
     except Exception as exc:  # unreadable / corrupt image
         raise HTTPException(status_code=422, detail=f"Could not analyze image: {exc}")
 
+    # Kept only when the worker confirmed the carer agreed to this film, and
+    # only when the deployment asked for collection at all.
+    if consent:
+        extension = (image.content_type or "image/jpeg").rsplit("/", 1)[-1]
+        sample_id = storage.save(
+            "xray", data, "jpg" if extension == "jpeg" else extension,
+            analysis=result, age_years=age_years,
+        )
+        if sample_id:
+            result = {**result, "sample_id": sample_id}
+    return result
+
 
 @app.post("/api/audio/cough")
-async def audio_cough(audio: UploadFile = File(...)):
+async def audio_cough(
+    audio: UploadFile = File(...),
+    consent: bool = Form(False),
+    age_years: int = Form(None),
+):
     """
     Acoustic description of a cough recording.
 
@@ -88,11 +108,43 @@ async def audio_cough(audio: UploadFile = File(...)):
         raise HTTPException(status_code=413, detail="Recording too large.")
 
     try:
-        return analyze_cough(data)
+        result = analyze_cough(data)
     except ValueError as exc:  # not the 16-bit PCM WAV the client should send
         raise HTTPException(status_code=415, detail=str(exc))
     except Exception as exc:
         raise HTTPException(status_code=422, detail=f"Could not analyze audio: {exc}")
+
+    if consent:
+        sample_id = storage.save(
+            "cough", data, "wav", analysis=result, age_years=age_years
+        )
+        if sample_id:
+            result = {**result, "sample_id": sample_id}
+    return result
+
+
+@app.post("/api/data/outcome")
+def data_outcome(
+    samples: list = Body(..., embed=True),
+    outcome: dict = Body(..., embed=True),
+):
+    """
+    Attach the screening result to captures kept earlier in the same session.
+
+    A film is read several screens before the total is known, so the label
+    always arrives after the media. Without this step the samples are
+    unlabelled, which is most of what makes them worth keeping.
+    """
+    if not storage.enabled():
+        return {"recorded": 0, "collection": False}
+
+    recorded = 0
+    for sample in samples[:8]:
+        if not isinstance(sample, dict):
+            continue
+        if storage.record_outcome(sample.get("id"), sample.get("kind"), outcome):
+            recorded += 1
+    return {"recorded": recorded, "collection": True}
 
 
 # --------------------------------------------------------------------------

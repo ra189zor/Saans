@@ -46,3 +46,8 @@ backend/models/embedding/
 # Cross-encoder that reranks the search hits (~87 MB). Also downloads itself on
 # first use, and the assistant falls back to plain vector order without it.
 backend/models/reranker/
+
+# Consented captures - children's cough recordings and chest films. Never
+# commit these: they are patient data, and no amount of "it is only a demo"
+# makes a public repository the right place for them.
+backend/data/

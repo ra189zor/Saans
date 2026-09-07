@@ -22,6 +22,10 @@ services:
     # the ~170 MB of downloaded models survive a rebuild.
     volumes:
       - ./backend/models:/app/backend/models
+      # Consented captures. A volume so they survive a rebuild, and so they are
+      # somewhere you can see, back up and delete rather than inside a
+      # container. Empty unless SAANS_COLLECT=1.
+      - ./backend/data:/app/backend/data
 
     env_file:
       - .env
@@ -31,6 +35,9 @@ services:
       SAANS_DEMO_MODE: "${SAANS_DEMO_MODE:-0}"
       # 0 turns off cross-encoder reranking and falls back to vector order.
       SAANS_RERANK: "${SAANS_RERANK:-1}"
+      # 1 keeps captures the carer consented to. Off unless asked for, so a
+      # deployment cannot start storing children's data by accident.
+      SAANS_COLLECT: "${SAANS_COLLECT:-0}"
 
     # TensorFlow settles around 2 GB. The ceiling is what stops a bad day here
     # from starving the neighbours on a shared box.

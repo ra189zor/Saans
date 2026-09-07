@@ -16,6 +16,7 @@ import SymptomMatrixScreen, {
   EMPTY_SYMPTOMS,
 } from './screens/SymptomMatrixScreen.jsx'
 import AskWhoScreen from './screens/AskWhoScreen.jsx'
+import { recordOutcome } from './lib/collection.js'
 import CoughRecordScreen from './screens/CoughRecordScreen.jsx'
 import XrayScanScreen from './screens/XrayScanScreen.jsx'
 import XrayFeaturesScreen from './screens/XrayFeaturesScreen.jsx'
@@ -40,6 +41,9 @@ export default function App() {
   /* Where the cough screen returns to. 'symptoms' when opened from the symptom
      form, 'results' when it is the last step after a chest X-ray. */
   const [coughReturn, setCoughReturn] = useState('symptoms')
+  /* Ids of captures the carer agreed to keep, so the screening result can
+     be attached to them once it exists. Empty unless collection is on. */
+  const [samples, setSamples] = useState([])
   function startNewScreening() {
     setDetectedSigns([])
     setFastTrack(false)
@@ -53,6 +57,7 @@ export default function App() {
     setSymptoms(EMPTY_SYMPTOMS)
     setXray(null)
     setCough(null)
+    setSamples([])
     setScreen('welcome')
   }
 
@@ -195,6 +200,7 @@ export default function App() {
                path for clinics with no X-ray at all, so it is the one most
                children take — collecting the audio only on the X-ray path
                would miss most of them. Skippable, and never scored. */
+            if (cough) recordOutcome(samples, result)
             setScreen(cough ? 'results' : 'coughRecord')
             if (!cough) setCoughReturn('results')
           }}
@@ -204,12 +210,21 @@ export default function App() {
     case 'coughRecord':
       return (
         <CoughRecordScreen
+          ageYears={ageYears}
           lastStep={coughReturn === 'results'}
           onDone={(analysis) => {
             setCough(analysis)
+            const kept = analysis?.sample_id
+              ? [...samples, { id: analysis.sample_id, kind: 'cough' }]
+              : samples
+            setSamples(kept)
+            if (coughReturn === 'results') recordOutcome(kept, score)
             setScreen(coughReturn)
           }}
-          onSkip={() => setScreen(coughReturn)}
+          onSkip={() => {
+            if (coughReturn === 'results') recordOutcome(samples, score)
+            setScreen(coughReturn)
+          }}
           /* Back goes where the worker came from: the X-ray confirmation if
              one was read, otherwise the symptom form. */
           onBack={() =>
@@ -223,8 +238,12 @@ export default function App() {
     case 'xrayScan':
       return (
         <XrayScanScreen
+          ageYears={ageYears}
           onAnalyzed={({ analysis, capturedDataUrl }) => {
             setXray({ analysis, capturedDataUrl })
+            if (analysis?.sample_id) {
+              setSamples((prev) => [...prev, { id: analysis.sample_id, kind: 'xray' }])
+            }
             setScreen('xrayFeatures')
           }}
           onBack={() => setScreen('symptoms')}
@@ -239,9 +258,11 @@ export default function App() {
             /* An X-ray was read, so Algorithm A applies: the symptom items are
                rescored with Sum A weights and combined with Sum B. */
             const findings = deriveFindings(symptoms)
-            setScore(
-              scoreFindings(findings, { algorithm: 'A', cxr: confirmedCxr })
-            )
+            const scored = scoreFindings(findings, {
+              algorithm: 'A',
+              cxr: confirmedCxr,
+            })
+            setScore(scored)
             setReferralCode(makeReferralCode())
 
             /* Ask for the cough before showing the result, while the child is
@@ -250,6 +271,7 @@ export default function App() {
                change the score (WHO scores cough by duration, not by sound);
                it is the one chance to capture the audio. Already recorded, or
                reached from the symptom screen, and this is skipped. */
+            if (cough) recordOutcome(samples, scored)
             setScreen(cough ? 'results' : 'coughRecord')
             if (!cough) setCoughReturn('results')
           }}
