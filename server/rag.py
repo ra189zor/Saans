@@ -629,6 +629,15 @@ def ask(question: str) -> dict:
     if not question:
         raise ValueError("Empty question.")
 
+    # Before retrieval, not after. Searching means loading the encoder and the
+    # reranker, and on a fresh checkout that is a 177 MB download - paid in
+    # full, on a question that was always going to fail for want of a key.
+    if not groq_available():
+        raise RuntimeError(
+            "GROQ_API_KEY is not set. Put it in a .env file at the project root:\n"
+            "    GROQ_API_KEY=gsk_your_key_here"
+        )
+
     passages = retrieve(question)
     # The best vector similarity found, not the score of whatever the
     # cross-encoder ranked first — reranking reorders passages, it does not
@@ -646,12 +655,6 @@ def ask(question: str) -> dict:
             "sources": [],
             "model": None,
         }
-
-    if not groq_available():
-        raise RuntimeError(
-            "GROQ_API_KEY is not set. Put it in a .env file at the project root:\n"
-            "    GROQ_API_KEY=gsk_your_key_here"
-        )
 
     answer = _call_groq(question, passages)
 

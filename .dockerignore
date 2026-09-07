@@ -19,9 +19,10 @@ backend/models
 notebooks
 saans_data
 
-# Source artwork for the question guides. The built WebP files in
-# src/assets/guides/ are what the app uses and those are kept.
+# Source artwork for the question guides, both languages. The built WebP files
+# in src/assets/guides/ are what the app uses and those are kept.
 src/assets/*.png
+src/assets/urdu assstes/
 
 # Secrets. Passed in by compose as environment variables instead.
 .env
