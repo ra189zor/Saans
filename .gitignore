@@ -52,3 +52,6 @@ backend/models/reranker/
 # commit these: they are patient data, and no amount of "it is only a demo"
 # makes a public repository the right place for them.
 backend/data/
+
+# Files prepared for the hackathon portal upload. Not part of the app.
+submission-attachments/
