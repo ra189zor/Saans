@@ -55,3 +55,11 @@ backend/data/
 
 # Files prepared for the hackathon portal upload. Not part of the app.
 submission-attachments/
+
+# Third-party agent skills installed via `npx skills add`. Not part of the app.
+.agents/
+skills-lock.json
+
+# /brag working folders (plan, brief, Hyperframes composition). The finished
+# launch video is committed to docs/ instead.
+brag-output-*/
