@@ -27,17 +27,12 @@ assistant's answer are what the app produces, not mockups.</em></p>
 ## Launch video
 
 <p align="center">
-  <video
-    src="https://github.com/ra189zor/Saans/raw/main/docs/saans-launch.mp4"
-    poster="https://github.com/ra189zor/Saans/raw/main/docs/saans-launch.jpg"
-    controls muted playsinline width="360">
-    <a href="docs/saans-launch.mp4">Play the Saans launch video</a>
-  </video>
+  <img src="docs/saans-launch.gif" width="34%" alt="Saans — a 23-second walkthrough of the screening flow, the risk score, and the results" />
 </p>
 
 <p align="center"><em>A 23-second walkthrough — the WHO screening flow, the risk score,
-and the models that suggest but never decide. Plays inline on GitHub; in a local
-preview, open <a href="docs/saans-launch.mp4">docs/saans-launch.mp4</a>.</em></p>
+and the models that suggest but never decide.
+&nbsp;·&nbsp; <a href="docs/saans-launch.mp4">full-resolution MP4</a></em></p>
 
 ## Live demo
 
